@@ -35,6 +35,9 @@ SELECT 'Alive' FROM dual;
 EXIT;
 EOF`
 
+  echo "/u01/sqlcl/bin/sql -silent ${CONNECTION}"
+  echo "${RETVAL}"
+
   RETVAL="${RETVAL//[$'\t\r\n']}"
   if [ "${RETVAL}" = "Alive" ]; then
     DB_OK=0
