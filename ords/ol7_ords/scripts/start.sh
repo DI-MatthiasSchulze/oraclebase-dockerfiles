@@ -62,6 +62,37 @@ EOF`
   echo "******************************************************************************"
   echo "APEX INSTALL RESULT: ${RETVAL}"
 
+  echo "******************************************************************************"
+  echo "Create APEX Admin user..."
+  echo "******************************************************************************"
+
+  RETVAL2=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+BEGIN
+    APEX_UTIL.set_security_group_id( 10 );
+
+    APEX_UTIL.create_user(
+        p_user_name       => 'ADMIN',
+        p_email_address   => 'me@example.com',
+        p_web_password    => 'oracle',
+        p_developer_privs => 'ADMIN' );
+
+    APEX_UTIL.set_security_group_id( null );
+    COMMIT;
+END;
+/
+EXIT;
+EOF`
+
+
+  echo "******************************************************************************"
+  echo "APEX REST Config..."
+  echo "******************************************************************************"
+
+  RETVAL3=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+@apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
+EXIT;
+EOF`
+
   if [ "${RETVAL}" = "Alive" ]; then
     APEX_INSTALLED_OK=0
   else
@@ -71,7 +102,7 @@ EOF`
 
 
 
-CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
+CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE} as SYSDBA"
 check_db ${CONNECTION}
 while [ ${DB_OK} -eq 1 ]
 do
