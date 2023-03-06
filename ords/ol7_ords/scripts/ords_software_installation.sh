@@ -37,8 +37,8 @@ echo "APEX Images."
 cd ${SOFTWARE_DIR}
 unzip -oq ${SOFTWARE_DIR}/${APEX_SOFTWARE}
 rm -f ${SOFTWARE_DIR}/${APEX_SOFTWARE}
-mv ${SOFTWARE_DIR}/apex/images .
-rm -Rf ${SOFTWARE_DIR}/apex
+#mv ${SOFTWARE_DIR}/apex/images .
+#rm -Rf ${SOFTWARE_DIR}/apex
 
 echo "Set file permissions."
 chmod u+x ${SCRIPTS_DIR}/*.sh

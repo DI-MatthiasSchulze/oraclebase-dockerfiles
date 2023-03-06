@@ -46,7 +46,32 @@ EOF`
   fi
 }
 
-CONNECTION="APEX_PUBLIC_USER/${APEX_PUBLIC_USER_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
+function install_apex {
+  CONNECTION=$1
+
+  echo "******************************************************************************"
+  echo "Installing APEX..."
+  echo "******************************************************************************"
+  cd ${SOFTWARE_DIR}/apex
+
+  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+@apexins.sql SYSAUX SYSAUX TEMP /i/
+EXIT;
+EOF`
+
+  echo "******************************************************************************"
+  echo "APEX INSTALL RESULT: ${RETVAL}"
+
+  if [ "${RETVAL}" = "Alive" ]; then
+    APEX_INSTALLED_OK=0
+  else
+    APEX_INSTALLED_OK=1
+  fi
+}
+
+
+
+CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 check_db ${CONNECTION}
 while [ ${DB_OK} -eq 1 ]
 do
@@ -71,7 +96,7 @@ if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
   echo "First time APEX images." `date`
   echo "******************************************************************************"
   mkdir -p ${CATALINA_BASE}/webapps/i/
-  cp -R ${SOFTWARE_DIR}/images/* ${CATALINA_BASE}/webapps/i/
+  cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
   APEX_IMAGES_REFRESH="false"
 fi
 
@@ -79,7 +104,7 @@ if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
   echo "******************************************************************************"
   echo "Overwrite APEX images." `date`
   echo "******************************************************************************"
-  cp -R ${SOFTWARE_DIR}/images/* ${CATALINA_BASE}/webapps/i/
+  cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
 fi
 
 if [ "${FIRST_RUN}" == "true" ]; then
@@ -91,7 +116,7 @@ if [ "${FIRST_RUN}" == "true" ]; then
   export ORDS_CONFIG=${ORDS_CONF}
   ${ORDS_HOME}/bin/ords --config ${ORDS_CONF} install \
        --log-folder ${ORDS_CONF}/logs \
-       --admin-user SYS \
+       --admin-user ${SYSDBA_USER} \
        --db-hostname ${DB_HOSTNAME} \
        --db-port ${DB_PORT} \
        --db-servicename ${DB_SERVICE} \
@@ -102,11 +127,13 @@ if [ "${FIRST_RUN}" == "true" ]; then
        --gateway-user APEX_PUBLIC_USER \
        --proxy-user \
        --password-stdin <<EOF
-${SYS_PASSWORD}
+${SYSDBA_PASSWORD}
 ${APEX_LISTENER_PASSWORD}
 EOF
 
   cp ords.war ${CATALINA_BASE}/webapps/
+
+  install_apex ${CONNECTION}
 fi
 
 if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
