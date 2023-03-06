@@ -29,13 +29,14 @@ export PATH=${PATH}:${JAVA_HOME}/bin
 
 function check_db {
   CONNECTION=$1
+  echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION}"
+
   RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
 SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
 SELECT 'Alive' FROM dual;
 EXIT;
 EOF`
 
-  echo "/u01/sqlcl/bin/sql -silent ${CONNECTION}"
   echo "${RETVAL}"
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
