@@ -31,7 +31,7 @@ mkdir -p ${ORDS_CONF}/logs
 echo "SQLcl setup."
 cd /u01
 unzip -oq ${SOFTWARE_DIR}/${SQLCL_SOFTWARE}
-rm -f ${SOFTWARE_DIR}/${SQLCL_SOFTWARE}
+#rm -f ${SOFTWARE_DIR}/${SQLCL_SOFTWARE}
 
 echo "APEX Images."
 cd ${SOFTWARE_DIR}
