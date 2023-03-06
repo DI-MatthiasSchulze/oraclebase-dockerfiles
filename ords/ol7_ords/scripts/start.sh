@@ -29,9 +29,9 @@ export PATH=${PATH}:${JAVA_HOME}/bin
 
 function check_db {
   CONNECTION=$1
-  echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION}"
+  echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
 
-  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
 SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
 SELECT 'Alive' FROM dual;
 EXIT;
@@ -55,7 +55,7 @@ function install_apex {
   echo "******************************************************************************"
   cd ${SOFTWARE_DIR}/apex
 
-  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
 @apexins.sql SYSAUX SYSAUX TEMP /i/
 EXIT;
 EOF`
@@ -67,7 +67,7 @@ EOF`
   echo "Create APEX Admin user..."
   echo "******************************************************************************"
 
-  RETVAL2=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+  RETVAL2=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
 BEGIN
     APEX_UTIL.set_security_group_id( 10 );
 
@@ -89,7 +89,7 @@ EOF`
   echo "APEX REST Config..."
   echo "******************************************************************************"
 
-  RETVAL3=`/u01/sqlcl/bin/sql -silent ${CONNECTION} <<EOF
+  RETVAL3=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
 @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
 EXIT;
 EOF`
@@ -103,7 +103,7 @@ EOF`
 
 
 
-CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE} as SYSDBA"
+CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 check_db ${CONNECTION}
 while [ ${DB_OK} -eq 1 ]
 do
