@@ -29,13 +29,15 @@ export PATH=${PATH}:${JAVA_HOME}/bin
 
 function check_db {
   CONNECTION=$1
-  echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
+  echo "checking db..."
 
-  RETVAL=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    whenever sqlerror exit sql.sqlcode
     SELECT 'Alive' FROM dual;
-    EXIT;
-  EOF}
+EOF
+)
 
   echo "${RETVAL}"
 
@@ -51,17 +53,19 @@ function check_apex {
   CONNECTION=$1
   echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
 
-  RETVAL=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    whenever sqlerror exit sql.sqlcode
     select max(version || ' ' || schema || ' ' || status)
     from   dba_registry
     where  COMP_ID = 'APEX'
     group by schema, version, status
     ;
-    EXIT;
-    EOF}
+EOF
+)
 
-  echo "${RETVAL}"
+  echo "Found APEX Version: ${RETVAL}"
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
   if [[ "${RETVAL}" == *VALID* ]]; then
@@ -80,19 +84,26 @@ function install_apex {
   echo "******************************************************************************"
   cd ${SOFTWARE_DIR}/apex
 
-  RETVAL=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    whenever sqlerror exit sql.sqlcode
     @apexins.sql SYSAUX SYSAUX TEMP /i/
-    EXIT;
-  EOF}
+EOF
+)
 
   echo "******************************************************************************"
-  echo "APEX INSTALL RESULT: ${RETVAL}"
+  echo "APEX INSTALL RESULT:"
+  echo "${RETVAL}"
 
   echo "******************************************************************************"
   echo "Create APEX Admin user..."
   echo "******************************************************************************"
 
-  RETVAL2=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+  RETVAL2=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    whenever sqlerror exit sql.sqlcode
     BEGIN
       APEX_UTIL.set_security_group_id( 10 );
 
@@ -106,17 +117,28 @@ function install_apex {
       COMMIT;
     END;
     /
-    EXIT;
-  EOF}
+EOF
+)
+
+  echo "******************************************************************************"
+  echo "CREATE USER RESULT:"
+  echo "${RETVAL2}"
 
   echo "******************************************************************************"
   echo "APEX REST Config..."
   echo "******************************************************************************"
 
-  RETVAL3=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+  RETVAL3=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    whenever sqlerror exit sql.sqlcode
     @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
-    EXIT;
-  EOF}
+EOF
+)
+
+  echo "******************************************************************************"
+  echo "REST Config RESULT:"
+  echo "${RETVAL3}"
 
   SUB='APEX successfully installed'
 
