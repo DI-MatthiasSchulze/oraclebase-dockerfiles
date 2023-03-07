@@ -118,7 +118,9 @@ function install_apex {
     EXIT;
   EOF}
 
-  if [[ "${RETVAL3}" == *APEX successfully installed* ]]; then
+  SUB='APEX successfully installed'
+
+  if [[ "${RETVAL3}" == *"$SUB"* ]]; then
     APEX_INSTALLED_OK=0
   else
     APEX_INSTALLED_OK=1
