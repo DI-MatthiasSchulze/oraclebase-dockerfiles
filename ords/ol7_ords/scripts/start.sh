@@ -65,9 +65,9 @@ function check_apex {
 EOF
 )
 
-  AMV="${APEX_MIN_VERSION}"
+  echo "Detected APEX Version: ${RETVAL}, expecting >= ${APEX_MIN_VERSION}"
 
-  echo "Found APEX Version: ${RETVAL}, expecting >= ${AMV}"
+  AMV="${APEX_MIN_VERSION}"
 
   if [ "${RETVAL}" -ge "$AMV" ]; then
     APEX_OK=1
