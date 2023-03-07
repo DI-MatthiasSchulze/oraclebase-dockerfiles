@@ -47,6 +47,31 @@ EOF`
   fi
 }
 
+function check_apex {
+  CONNECTION=$1
+  echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
+
+  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+select max(version || ' ' || schema || ' ' || status)
+from   dba_registry
+where  COMP_ID = 'APEX'
+group by schema, version, status
+;
+EXIT;
+EOF`
+
+  echo "${RETVAL}"
+
+  RETVAL="${RETVAL//[$'\t\r\n']}"
+  if [[ "${RETVAL}" == *VALID* ]]; then
+    APEX_OK=0
+  else
+    APEX_OK=1
+  fi
+}
+
+
 function install_apex {
   CONNECTION=$1
 
@@ -101,9 +126,8 @@ EOF`
   fi
 }
 
-
-
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
+
 check_db ${CONNECTION}
 while [ ${DB_OK} -eq 1 ]
 do
@@ -111,6 +135,7 @@ do
   sleep 30
   check_db ${CONNECTION}
 done
+
 
 if [ ! -d ${CATALINA_BASE}/conf ]; then
   echo "******************************************************************************"
@@ -159,13 +184,17 @@ if [ "${FIRST_RUN}" == "true" ]; then
        --gateway-user APEX_PUBLIC_USER \
        --proxy-user \
        --password-stdin <<EOF
-${SYSDBA_PASSWORD}
-${APEX_LISTENER_PASSWORD}
+${SYSDBA_PASSWORD} as SYSDBA
 EOF
 
   cp ords.war ${CATALINA_BASE}/webapps/
 
-  install_apex ${CONNECTION}
+  check_apex ${CONNECTION}
+
+  if [ ${APEX_OK} -eq 0 ] then
+    install_apex ${CONNECTION}
+  fi
+
 fi
 
 if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
