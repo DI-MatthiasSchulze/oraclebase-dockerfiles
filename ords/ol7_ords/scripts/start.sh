@@ -68,10 +68,13 @@ EOF
   echo "Detected APEX Version: ${RETVAL}, expecting >= ${APEX_MIN_VERSION}"
 
   AMV="${APEX_MIN_VERSION}"
+  VALID='VALID'
 
-  if [ "${RETVAL}" -ge "$AMV" ]; then
-    APEX_OK=1
-    echo "...OK"
+  if [[ "${RETVAL}" > "$AMV" ]]; then
+    if [[ "${RETVAL}" == *"$VALID"* ]]; then
+      APEX_OK=1
+      echo "...OK"
+    fi
   else
     APEX_OK=0
     echo "...APEX Installation/Upgrade needed"
@@ -201,7 +204,7 @@ if [ "${FIRST_RUN}" == "true" ]; then
 
   ${ORDS_HOME}/bin/ords --config ${ORDS_CONF} install \
        --log-folder ${ORDS_CONF}/logs \
-       --admin-user ${SYSDBA_USER} \
+       --admin-user SYS \
        --db-hostname ${DB_HOSTNAME} \
        --db-port ${DB_PORT} \
        --db-servicename ${DB_SERVICE} \
@@ -212,8 +215,7 @@ if [ "${FIRST_RUN}" == "true" ]; then
        --gateway-user APEX_PUBLIC_USER \
        --password-stdin <<EOF
 ${SYSDBA_PASSWORD}
-${SYSDBA_PASSWORD}
-${APEX_PUBLIC_USER_PASSWORD}
+${APEX_LISTENER_PASSWORD}
 EOF
 
   cp ords.war ${CATALINA_BASE}/webapps/
