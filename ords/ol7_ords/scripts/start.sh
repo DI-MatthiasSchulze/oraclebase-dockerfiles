@@ -67,9 +67,9 @@ EOF
 
   AMV="${APEX_MIN_VERSION]}"
 
-  echo "Found APEX Version: ${RETVAL}, expecting ${AMV}"
+  echo "Found APEX Version: ${RETVAL}, expecting >= ${AMV}"
 
-  if [ "${RETVAL}" -ge "$AMV" ] then
+  if [ "${RETVAL}" -ge "$AMV" ]; then
     APEX_OK=1
     echo "...OK"
   else
