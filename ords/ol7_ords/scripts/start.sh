@@ -65,7 +65,7 @@ function check_apex {
 EOF
 )
 
-  AMV="${APEX_MIN_VERSION]}"
+  AMV="${APEX_MIN_VERSION}"
 
   echo "Found APEX Version: ${RETVAL}, expecting >= ${AMV}"
 
@@ -211,7 +211,9 @@ if [ "${FIRST_RUN}" == "true" ]; then
        --gateway-mode proxied \
        --gateway-user APEX_PUBLIC_USER \
        --password-stdin <<EOF
-${SYSDBA_PASSWORD} as SYSDBA
+${SYSDBA_PASSWORD}
+${SYSDBA_PASSWORD}
+${APEX_PUBLIC_USER_PASSWORD}
 EOF
 
   cp ords.war ${CATALINA_BASE}/webapps/
