@@ -51,7 +51,6 @@ EOF
 
 function check_apex {
   CONNECTION=$1
-  echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
@@ -71,23 +70,27 @@ EOF
   AMV="${APEX_MIN_VERSION}"
   VALID='VALID'
 
-  if [[ "${RETVAL}" == *"$AMV"* ]]; then
-    echo "...exact version"
-  else
-    echo "...not exact version"
-  fi
-
   if [[ "${RETVAL}" > "${AMV}" ]]; then
     if [[ "${RETVAL}" == *"$VALID"* ]]; then
       APEX_OK=1
       echo "...OK"
     else
+      APEX_OK=0
       echo "...APEX is not VALID"
     fi
   else
     APEX_OK=0
-    echo "...APEX Installation/Upgrade needed ${RETVAL} > ${AMV}"
+    echo "...APEX Installation/Upgrade needed"
   fi
+
+  RETVAL1=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    whenever sqlerror exit sql.sqlcode
+    alter user apex_public_user identified by "${APEX_PUBLIC_USER_PASSWORD}" account unlock;
+EOF
+)
+
 }
 
 
@@ -141,7 +144,6 @@ EOF
 
   echo "******************************************************************************"
   echo "APEX REST Config..."
-  echo "******************************************************************************"
 
   RETVAL3=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
