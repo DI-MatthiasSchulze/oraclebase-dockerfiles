@@ -65,13 +65,16 @@ function check_apex {
 EOF
 )
 
-  echo "Found APEX Version: ${RETVAL}"
+  AMV="${APEX_MIN_VERSION]}"
 
-  RETVAL="${RETVAL//[$'\t\r\n']}"
-  if [[ "${RETVAL}" == *VALID* ]]; then
-    APEX_OK=0
-  else
+  echo "Found APEX Version: ${RETVAL}, expecting ${AMV}"
+
+  if [ "${RETVAL}" -ge "$AMV" ] then
     APEX_OK=1
+    echo "...OK"
+  else
+    APEX_OK=0
+    echo "...APEX Installation/Upgrade needed"
   fi
 }
 
@@ -195,6 +198,7 @@ if [ "${FIRST_RUN}" == "true" ]; then
   cd ${ORDS_HOME}
 
   export ORDS_CONFIG=${ORDS_CONF}
+
   ${ORDS_HOME}/bin/ords --config ${ORDS_CONF} install \
        --log-folder ${ORDS_CONF}/logs \
        --admin-user ${SYSDBA_USER} \
@@ -206,7 +210,6 @@ if [ "${FIRST_RUN}" == "true" ]; then
        --feature-sdw true \
        --gateway-mode proxied \
        --gateway-user APEX_PUBLIC_USER \
-       --proxy-user \
        --password-stdin <<EOF
 ${SYSDBA_PASSWORD} as SYSDBA
 EOF
