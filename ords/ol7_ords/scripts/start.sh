@@ -70,10 +70,18 @@ EOF
   AMV="${APEX_MIN_VERSION}"
   VALID='VALID'
 
+  if [[ "${RETVAL}" == *"$AMV"* ]]; then
+    echo "...exact version"
+  else
+    echo "...not exact version"
+  fi
+
   if [[ "${RETVAL}" > "$AMV" ]]; then
     if [[ "${RETVAL}" == *"$VALID"* ]]; then
       APEX_OK=1
       echo "...OK"
+    else
+      echo "...APEX is not VALID"
     fi
   else
     APEX_OK=0
@@ -204,7 +212,7 @@ if [ "${FIRST_RUN}" == "true" ]; then
 
   ${ORDS_HOME}/bin/ords --config ${ORDS_CONF} install \
        --log-folder ${ORDS_CONF}/logs \
-       --admin-user SYS \
+       --admin-user "${SYSDBA_USER} as SYSDBA" \
        --db-hostname ${DB_HOSTNAME} \
        --db-port ${DB_PORT} \
        --db-servicename ${DB_SERVICE} \
