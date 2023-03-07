@@ -65,6 +65,7 @@ function check_apex {
 EOF
 )
 
+  RETVAL="${RETVAL//[$'\t\r\n']}"
   echo "Detected APEX Version: ${RETVAL}, expecting >= ${APEX_MIN_VERSION}"
 
   AMV="${APEX_MIN_VERSION}"
@@ -85,7 +86,7 @@ EOF
     fi
   else
     APEX_OK=0
-    echo "...APEX Installation/Upgrade needed"
+    echo "...APEX Installation/Upgrade needed ${RETVAL} > ${AMV}"
   fi
 }
 
