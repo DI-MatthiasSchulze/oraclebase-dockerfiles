@@ -76,7 +76,7 @@ EOF
     echo "...not exact version"
   fi
 
-  if [[ "$RETVAL" > "$AMV" ]]; then
+  if [[ "${RETVAL}" > "${AMV}" ]]; then
     if [[ "${RETVAL}" == *"$VALID"* ]]; then
       APEX_OK=1
       echo "...OK"
@@ -221,10 +221,10 @@ if [ "${FIRST_RUN}" == "true" ]; then
        --feature-sdw true \
        --gateway-mode proxied \
        --gateway-user APEX_PUBLIC_USER \
+       --proxy-user \
        --password-stdin <<EOF
 ${SYSDBA_PASSWORD}
 ${APEX_LISTENER_PASSWORD}
-${APEX_PUBLIC_USER_PASSWORD}
 EOF
 
   cp ords.war ${CATALINA_BASE}/webapps/
