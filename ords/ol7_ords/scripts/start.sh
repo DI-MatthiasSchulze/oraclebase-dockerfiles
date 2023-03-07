@@ -31,11 +31,11 @@ function check_db {
   CONNECTION=$1
   echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
 
-  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
-SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-SELECT 'Alive' FROM dual;
-EXIT;
-EOF`
+  RETVAL=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    SELECT 'Alive' FROM dual;
+    EXIT;
+  EOF}
 
   echo "${RETVAL}"
 
@@ -51,15 +51,15 @@ function check_apex {
   CONNECTION=$1
   echo "$ /u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA"
 
-  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
-SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-select max(version || ' ' || schema || ' ' || status)
-from   dba_registry
-where  COMP_ID = 'APEX'
-group by schema, version, status
-;
-EXIT;
-EOF`
+  RETVAL=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    select max(version || ' ' || schema || ' ' || status)
+    from   dba_registry
+    where  COMP_ID = 'APEX'
+    group by schema, version, status
+    ;
+    EXIT;
+    EOF}
 
   echo "${RETVAL}"
 
@@ -80,10 +80,10 @@ function install_apex {
   echo "******************************************************************************"
   cd ${SOFTWARE_DIR}/apex
 
-  RETVAL=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
-@apexins.sql SYSAUX SYSAUX TEMP /i/
-EXIT;
-EOF`
+  RETVAL=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+    @apexins.sql SYSAUX SYSAUX TEMP /i/
+    EXIT;
+  EOF}
 
   echo "******************************************************************************"
   echo "APEX INSTALL RESULT: ${RETVAL}"
@@ -92,39 +92,39 @@ EOF`
   echo "Create APEX Admin user..."
   echo "******************************************************************************"
 
-  RETVAL2=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
-BEGIN
-    APEX_UTIL.set_security_group_id( 10 );
+  RETVAL2=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+    BEGIN
+      APEX_UTIL.set_security_group_id( 10 );
 
-    APEX_UTIL.create_user(
-        p_user_name       => 'ADMIN',
-        p_email_address   => 'me@example.com',
-        p_web_password    => 'oracle',
-        p_developer_privs => 'ADMIN' );
+      APEX_UTIL.create_user(
+          p_user_name       => 'ADMIN',
+          p_email_address   => 'me@example.com',
+          p_web_password    => 'oracle',
+          p_developer_privs => 'ADMIN' );
 
-    APEX_UTIL.set_security_group_id( null );
-    COMMIT;
-END;
-/
-EXIT;
-EOF`
-
+      APEX_UTIL.set_security_group_id( null );
+      COMMIT;
+    END;
+    /
+    EXIT;
+  EOF}
 
   echo "******************************************************************************"
   echo "APEX REST Config..."
   echo "******************************************************************************"
 
-  RETVAL3=`/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
-@apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
-EXIT;
-EOF`
+  RETVAL3=${/u01/sqlcl/bin/sql -silent ${CONNECTION} as SYSDBA <<EOF
+    @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
+    EXIT;
+  EOF}
 
-  if [ "${RETVAL}" = "Alive" ]; then
+  if [[ "${RETVAL3}" == *APEX successfully installed* ]]; then
     APEX_INSTALLED_OK=0
   else
     APEX_INSTALLED_OK=1
   fi
 }
+
 
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
@@ -191,7 +191,7 @@ EOF
 
   check_apex ${CONNECTION}
 
-  if [ ${APEX_OK} -eq 0 ] then
+  if [ ${APEX_OK} -eq 0 ]; then
     install_apex ${CONNECTION}
   fi
 
