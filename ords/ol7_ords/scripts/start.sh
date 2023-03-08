@@ -223,7 +223,7 @@ ${SYSDBA_PASSWORD}
 ${APEX_LISTENER_PASSWORD}
 EOF
 
-  cp ords.war ${CATALINA_BASE}/webapps/
+  cp ords.war ${CATALINA_BASE}/webapps/${ROOT_CONTEXT}.war
 
 fi
 
