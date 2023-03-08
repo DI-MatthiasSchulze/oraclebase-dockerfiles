@@ -60,11 +60,11 @@ ENV JAVA_SOFTWARE="OpenJDK11U-jdk_x64_linux_hotspot_11.0.9_11.tar.gz"          \
 
 # ------------------------------------------------------------------------------
 # Define config (runtime) environment variables.
-ENV DB_HOSTNAME="ol7-183.localdomain"                                          \
+ENV DB_HOSTNAME="localhost"                                                    \
     DB_PORT="1521"                                                             \
     DB_SERVICE="xepdb1"                                                        \
     APEX_PUBLIC_USER_PASSWORD="ApexPassword1"                                  \
-    APEX_TABLESPACE="APEX"                                                     \
+    APEX_TABLESPACE="SYSAUX"                                                   \
     TEMP_TABLESPACE="TEMP"                                                     \
     APEX_LISTENER_PASSWORD="ApexPassword1"                                     \
     APEX_REST_PASSWORD="ApexPassword1"                                         \
@@ -72,7 +72,7 @@ ENV DB_HOSTNAME="ol7-183.localdomain"                                          \
     SYSDBA_USER="C##DBAPI_CDB_ADMIN"                                           \
     SYSDBA_PASSWORD="SysPassword1"                                             \
     APEX_MIN_VERSION="22.2.0"                                                  \
-    ROOT_CONTEXT="ords"                                                        \
+    CONTEXT_ROOT="ords"                                                        \
     KEYSTORE_PASSWORD="KeystorePassword1"                                      \
     AJP_SECRET="AJPSecret1"                                                    \
     AJP_ADDRESS="::1"                                                          \

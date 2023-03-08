@@ -145,7 +145,6 @@ EOF
     @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
 EOF
 
-
   echo "******************************************************************************"
   echo "Checking APEX after installation..."
   check_apex ${CONNECTION}
@@ -223,7 +222,7 @@ ${SYSDBA_PASSWORD}
 ${APEX_LISTENER_PASSWORD}
 EOF
 
-  cp ords.war ${CATALINA_BASE}/webapps/${ROOT_CONTEXT}.war
+  cp ords.war ${CATALINA_BASE}/webapps/${CONTEXT_ROOT}.war
 
 fi
 
