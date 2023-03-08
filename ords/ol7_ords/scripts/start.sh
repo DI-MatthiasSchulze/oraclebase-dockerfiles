@@ -56,7 +56,7 @@ function check_apex {
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
-    select max(version || ' ' || schema || ' ' || status)
+    select nvl(max(version || ' ' || schema || ' ' || status), '0.0.0 NOT_INSTALLED')
     from   dba_registry
     where  COMP_ID = 'APEX'
     group by schema, version, status
@@ -102,13 +102,11 @@ function install_apex {
   echo "******************************************************************************"
   cd ${SOFTWARE_DIR}/apex
 
-  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
-    whenever sqlerror exit sql.sqlcode
     @apexins.sql SYSAUX SYSAUX TEMP /i/
 EOF
-)
 
   echo "******************************************************************************"
   echo "APEX INSTALL RESULT:"
@@ -118,8 +116,8 @@ EOF
   echo "Create APEX Admin user..."
   echo "******************************************************************************"
 
-  RETVAL2=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
     BEGIN
@@ -136,34 +134,22 @@ EOF
     END;
     /
 EOF
-)
-
-  echo "******************************************************************************"
-  echo "CREATE USER RESULT:"
-  echo "${RETVAL2}"
 
   echo "******************************************************************************"
   echo "APEX REST Config..."
 
-  RETVAL3=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
     @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
 EOF
-)
+
 
   echo "******************************************************************************"
-  echo "REST Config RESULT:"
-  echo "${RETVAL3}"
+  echo "Checking APEX after installation..."
+  check_apex ${CONNECTION}
 
-  SUB='APEX successfully installed'
-
-  if [[ "${RETVAL3}" == *"$SUB"* ]]; then
-    APEX_INSTALLED_OK=0
-  else
-    APEX_INSTALLED_OK=1
-  fi
 }
 
 
@@ -206,6 +192,13 @@ if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
 fi
 
 if [ "${FIRST_RUN}" == "true" ]; then
+
+  check_apex ${CONNECTION}
+
+  if [ ${APEX_OK} -eq 0 ]; then
+    install_apex ${CONNECTION}
+  fi
+
   echo "******************************************************************************"
   echo "Configure ORDS. Safe to run on DB with existing config." `date`
   echo "******************************************************************************"
@@ -231,12 +224,6 @@ ${APEX_LISTENER_PASSWORD}
 EOF
 
   cp ords.war ${CATALINA_BASE}/webapps/
-
-  check_apex ${CONNECTION}
-
-  if [ ${APEX_OK} -eq 0 ]; then
-    install_apex ${CONNECTION}
-  fi
 
 fi
 
