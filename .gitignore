@@ -1,4 +1,5 @@
 # Software Files #
 ##################
+*.DS_Store
 *.gz
 *.zip
