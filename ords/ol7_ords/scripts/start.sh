@@ -1,5 +1,5 @@
 echo "******************************************************************************"
-echo "Check if this is the first run." `date`
+echo "$(date) Check if this is the first run."
 echo "******************************************************************************"
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
@@ -11,8 +11,8 @@ else
 fi
 
 echo "******************************************************************************"
-echo "Handle shutdowns." `date`
-echo "docker stop --time=30 {container}" `date`
+echo "$(date) Handle shutdowns."
+echo "$(date) docker stop --time=30 {container}"
 echo "******************************************************************************"
 function gracefulshutdown {
   ${CATALINA_HOME}/bin/shutdown.sh
@@ -23,7 +23,7 @@ trap gracefulshutdown SIGTERM
 trap gracefulshutdown SIGKILL
 
 echo "******************************************************************************"
-echo "Check DB is available." `date`
+echo "$(date) Check DB is available."
 echo "******************************************************************************"
 export PATH=${PATH}:${JAVA_HOME}/bin
 
@@ -151,6 +151,114 @@ EOF
 
 }
 
+function dba_configure {
+  CONNECTION=$1
+  WORKSPACE=$2
+  SCHEMA=$3
+  DB_ROOTPATH=$4
+  SMTP_HOST=$5
+  SMTP_PORT=$6
+
+  echo "******************************************************************************"
+  echo "Configuring schema ${SCHEMA}..."
+
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    @dba_configure
+EOF
+)
+
+  echo "RETVAL: ${RETVAL}"
+
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    begin dba_configure
+      ('${SCHEMA}',
+       optionFiletransfer  => true,
+       rootPath            => '${DB_ROOTPATH}/${SCHEMA}',
+       smtpHost            => '${SMTP_HOST}',
+       smtpPort            => '${SMTP_PORT}',
+       runIt               => true
+      );
+    end;
+    /
+EOF
+
+  echo "******************************************************************************"
+  echo "configuration of schema ${SCHEMA} finished"
+  echo "******************************************************************************"
+}
+
+
+function install_app {
+  CONNECTION=$1
+  WORKSPACE=$2
+  SCHEMA=$3
+  APP_ID=$4
+  APP_ALIAS=$5
+  FILENAME=$6
+  APP_MIN_VERSION=$7
+
+  echo "******************************************************************************"
+  echo "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME}"
+
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    select nvl(max(substr(version, 1, instr(version, ' '))
+                   || case when availability_status like '%Available%' then 'AVAILABLE' else 'UNAVAILABLE' end),
+               '0.0.0 NOT_INSTALLED'
+              )
+    from   APEX_APPLICATIONS
+    where  WORKSPACE       = '${WORKSPACE}'
+      and  APPLICATION_ID  = '${APP_ID}'
+      and  ALIAS           = '${APP_ALIAS}'
+      and  OWNER           = '${SCHEMA}'
+    group by schema, version, status
+    ;
+EOF
+)
+
+  RETVAL="${RETVAL//[$'\t\r\n']}"
+  echo "${RETVAL}"
+
+  if [[ "${RETVAL}" > "${AMV}" ]]; then
+    if [[ "${RETVAL}" == *" AVAILABLE"* ]]; then
+      APP_OK=1
+      echo "...OK"
+    else
+      APP_OK=1
+      echo "...APP is UNAVAILABLE"
+    fi
+  else
+    APP_OK=0
+    echo "...App Installation/Upgrade needed"
+  fi
+
+  if [ ${APP_OK} -eq 0 ]; then
+
+    /u01/sqlcl/bin/sql -S /NOLOG << EOF
+      SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
+      conn ${CONNECTION} as SYSDBA
+      exec apex_util.set_workspace('${WORKSPACE}')
+      exec apex_application_install.set_workspace_id( apex_util.find_security_group_id( p_workspace => '${WORKSPACE}'))
+      exec apex_application_install.set_schema('${SCHEMA}')
+      exec apex_application_install.set_application_id('${APP_ID}')
+      exec apex_application_install.set_application_alias('${APP_ALIAS}')
+      exec apex_application_install.set_auto_install_sup_obj(true)
+      exec apex_application_install.generate_offset
+
+      @FILENAME
+EOF
+
+  fi
+
+  echo "******************************************************************************"
+  echo "app #${APP_ID}: ${APP_ALIAS} installed"
+
+}
 
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
@@ -165,7 +273,7 @@ done
 
 if [ ! -d ${CATALINA_BASE}/conf ]; then
   echo "******************************************************************************"
-  echo "New CATALINA_BASE location." `date`
+  echo "$(date) New CATALINA_BASE location."
   echo "******************************************************************************"
   cp -r ${CATALINA_HOME}/conf ${CATALINA_BASE}
   cp -r ${CATALINA_HOME}/logs ${CATALINA_BASE}
@@ -176,7 +284,7 @@ fi
 
 if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
   echo "******************************************************************************"
-  echo "First time APEX images." `date`
+  echo "$(date) First time APEX images."
   echo "******************************************************************************"
   mkdir -p ${CATALINA_BASE}/webapps/i/
   cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
@@ -185,7 +293,7 @@ fi
 
 if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
   echo "******************************************************************************"
-  echo "Overwrite APEX images." `date`
+  echo "$(date) Overwrite APEX images."
   echo "******************************************************************************"
   cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
 fi
@@ -199,7 +307,7 @@ if [ "${FIRST_RUN}" == "true" ]; then
   fi
 
   echo "******************************************************************************"
-  echo "Configure ORDS. Safe to run on DB with existing config." `date`
+  echo "$(date) Configure ORDS. Safe to run on DB with existing config."
   echo "******************************************************************************"
   cd ${ORDS_HOME}
 
@@ -226,9 +334,28 @@ EOF
 
 fi
 
+
+echo "******************************************************************************"
+echo "$(date) Installing Apps..."
+echo "******************************************************************************"
+
+export WORKSPACE="INTRACK"
+export SCHEMA="INTRACK"
+
+cd ${SOFTWARE_DIR}/db/scripts/privileged
+dba_configure ${CONNECTION} ${WORKSPACE} ${SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_HOST}
+
+cd ${SOFTWARE_DIR}/db/scripts
+
+CONNECTION="${SCHEMA}/${PUBLIC_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
+
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack_22_1.sql" "2.9"
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashb_22_1.sql"   "1.9"
+
+
 if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
   echo "******************************************************************************"
-  echo "Configure HTTPS." `date`
+  echo "$(date) Configure HTTPS."
   echo "******************************************************************************"
   mkdir -p ${KEYSTORE_DIR}
   cd ${KEYSTORE_DIR}
@@ -246,13 +373,13 @@ if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
 fi;
 
 echo "******************************************************************************"
-echo "Start Tomcat." `date`
+echo "$(date) Start Tomcat."
 echo "******************************************************************************"
 ${CATALINA_HOME}/bin/startup.sh
 
 echo "******************************************************************************"
-echo "Tail the catalina.out file as a background process" `date`
-echo "and wait on the process so script never ends." `date`
+echo "$(date) Tail the catalina.out file as a background process"
+echo "$(date) and wait on the process so script never ends."
 echo "******************************************************************************"
 tail -f ${CATALINA_BASE}/logs/catalina.out &
 bgPID=$!
