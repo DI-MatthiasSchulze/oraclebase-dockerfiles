@@ -163,17 +163,18 @@ function dba_configure {
   echo "Configuring schema ${SCHEMA}..."
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
-    @dba_configure
+    @DBA_CONFIGURE.sql
 EOF
 )
 
   echo "RETVAL: ${RETVAL}"
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
     conn ${CONNECTION} as SYSDBA
+    exec dbms_output.enable(null)
     begin dba_configure
       ('${SCHEMA}',
        optionFiletransfer  => true,
