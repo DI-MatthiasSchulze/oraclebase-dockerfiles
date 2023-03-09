@@ -202,11 +202,11 @@ function install_app {
   APP_MIN_VERSION=$7
 
   echo "******************************************************************************"
-  echo "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME}"
+  echo "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME} @${CONNECTION}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION} as SYSDBA
+    conn ${CONNECTION}
     select nvl(max(substr(version, 1, instr(version, ' '))
                    || case when availability_status like '%Available%' then 'AVAILABLE' else 'UNAVAILABLE' end),
                '0.0.0 NOT_INSTALLED'
@@ -241,7 +241,7 @@ EOF
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
-      conn ${CONNECTION} as SYSDBA
+      conn ${CONNECTION}
       exec apex_util.set_workspace('${WORKSPACE}')
       exec apex_application_install.set_workspace_id( apex_util.find_security_group_id( p_workspace => '${WORKSPACE}'))
       exec apex_application_install.set_schema('${SCHEMA}')
@@ -342,12 +342,10 @@ echo "**************************************************************************
 export WORKSPACE="INTRACK"
 export SCHEMA="INTRACK"
 
-cd ${SOFTWARE_DIR}/db/scripts/privileged
+cd ${SOFTWARE_DIR}
 dba_configure ${CONNECTION} ${WORKSPACE} ${SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_HOST}
 
-cd ${SOFTWARE_DIR}/db/scripts
-
-CONNECTION="${SCHEMA}/${PUBLIC_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
+CONNECTION="${SCHEMA}/oracle@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
 install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack_22_1.sql" "2.9"
 install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashb_22_1.sql"   "1.9"

@@ -188,7 +188,7 @@ create or replace procedure DBA_CONFIGURE
   is
   begin
     DBMS_OUTPUT.Put_Line ('/* Setting up schema '||vSchema||'... */');
-    x('create user '||vSchema);
+    x('create user '||vSchema||' identified by oracle');
   end;
 
 
