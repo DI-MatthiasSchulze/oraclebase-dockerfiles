@@ -217,7 +217,7 @@ function install_app {
       and  APPLICATION_ID  = '${APP_ID}'
       and  ALIAS           = '${APP_ALIAS}'
       and  OWNER           = '${SCHEMA}'
-    group by schema, version, status
+    group by version, availability_status
     ;
 EOF
 )
@@ -230,7 +230,7 @@ EOF
       APP_OK=1
       echo "...OK"
     else
-      APP_OK=1
+      APP_OK=0
       echo "...APP is UNAVAILABLE"
     fi
   else
@@ -251,7 +251,7 @@ EOF
       exec apex_application_install.set_auto_install_sup_obj(true)
       exec apex_application_install.generate_offset
 
-      @FILENAME
+      @${FILENAME}
 EOF
 
   fi
