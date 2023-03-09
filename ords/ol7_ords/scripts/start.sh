@@ -29,7 +29,7 @@ export PATH=${PATH}:${JAVA_HOME}/bin
 
 function check_db {
   CONNECTION=$1
-  echo "checking db..."
+  echo "checking db... ${CONNECTION}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
