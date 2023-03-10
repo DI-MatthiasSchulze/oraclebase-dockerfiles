@@ -235,7 +235,7 @@ EOF
     fi
   else
     APP_OK=0
-    echo "...App Installation/Upgrade needed"
+    echo "${RETVAL} ...App Installation/Upgrade needed"
   fi
 
   if [ ${APP_OK} -eq 0 ]; then
@@ -260,6 +260,9 @@ EOF
   echo "app #${APP_ID}: ${APP_ALIAS} installed"
 
 }
+
+
+
 
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
@@ -288,7 +291,8 @@ if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
   echo "$(date) First time APEX images."
   echo "******************************************************************************"
   mkdir -p ${CATALINA_BASE}/webapps/i/
-  cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
+  # cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
+  ln -s ${SOFTWARE_DIR}/apex/images ${CATALINA_BASE}/webapps/i
   APEX_IMAGES_REFRESH="false"
 fi
 
@@ -348,7 +352,7 @@ dba_configure ${CONNECTION} ${WORKSPACE} ${SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} $
 
 CONNECTION="${SCHEMA}/oracle@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack_22_1.sql" "2.9"
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack_21_2.sql" "2.9"
 install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashb_22_1.sql"   "1.9"
 
 
