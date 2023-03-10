@@ -203,16 +203,17 @@ function install_app {
   echo "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME} @${CONNECTION} in workspace/schema ${WORKSPACE}/${SCHEMA}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION}
     select nvl(max(substr(version, 1, instr(version, ' '))
                    || case when availability_status like '%Available%' then 'AVAILABLE' else 'UNAVAILABLE' end),
                '0.0.0 NOT_INSTALLED'
               )
     from   APEX_APPLICATIONS
-    where  WORKSPACE       = '${WORKSPACE}'
+    where  WORKSPACE       = upper('${WORKSPACE}')
       and  APPLICATION_ID  = '${APP_ID}'
-      and  ALIAS           = '${APP_ALIAS}'
-      and  OWNER           = '${SCHEMA}'
+      and  ALIAS           = upper('${APP_ALIAS}')
+      and  OWNER           = upper('${SCHEMA}')
     group by version, availability_status
     ;
 EOF
