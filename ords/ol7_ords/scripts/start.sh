@@ -211,18 +211,15 @@ function install_app {
               )
     from   APEX_APPLICATIONS
     where  WORKSPACE       = upper('${WORKSPACE}')
-      and  APPLICATION_ID  = '${APP_ID}'
       and  ALIAS           = upper('${APP_ALIAS}')
       and  OWNER           = upper('${SCHEMA}')
+      and  APPLICATION_ID  = '${APP_ID}'
     group by version, availability_status
     ;
 EOF
 )
 
-  echo "RETVAL1: ${RETVAL}"
   RETVAL="${RETVAL//[$'\t\r\n']}"
-  echo "RETVAL2: ${RETVAL}"
-
   if [[ "${RETVAL}" > "${APP_MIN_VERSION}" ]]; then
     if [[ "${RETVAL}" == *" AVAILABLE"* ]]; then
       APP_OK=1
@@ -233,7 +230,7 @@ EOF
     fi
   else
     APP_OK=0
-    echo "${RETVAL} ...App Installation/Upgrade needed"
+    echo "found ${RETVAL} ...App Installation/Upgrade needed"
   fi
 
   if [ ${APP_OK} -eq 0 ]; then
@@ -268,7 +265,7 @@ function recompile {
   echo "Recompiling schema ${SCHEMA}"
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF SQLFORMAT ANSICONSOLE
+    SET SQLFORMAT ANSICONSOLE
     conn ${CONNECTION}
     exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
 
