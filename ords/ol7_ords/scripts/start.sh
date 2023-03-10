@@ -261,6 +261,29 @@ EOF
 
 
 
+function recompile {
+  CONNECTION=$1
+
+  echo "******************************************************************************"
+  echo "Recompiling schema ${SCHEMA}"
+
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
+    conn ${CONNECTION}
+    exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
+
+    select *
+    from   all_errors
+    where  owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
+    order  by 1,2,3
+    ;
+EOF
+
+  echo "******************************************************************************"
+}
+
+# **************************************************************************************
+# main()
 
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
@@ -350,8 +373,10 @@ dba_configure ${CONNECTION} ${WORKSPACE} ${SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} $
 
 CONNECTION="${SCHEMA}/oracle@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack_21_2.sql" "2.9"
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashb_22_1.sql"   "1.9"
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack.sql"   "2.0.2"
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashboard.sql" "1.0.0"
+
+recompile   ${CONNECTION}
 
 
 if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
