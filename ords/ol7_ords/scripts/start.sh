@@ -223,7 +223,7 @@ EOF
   RETVAL="${RETVAL//[$'\t\r\n']}"
   echo "RETVAL2: ${RETVAL}"
 
-  if [[ "${RETVAL}" > "${AMV}" ]]; then
+  if [[ "${RETVAL}" > "${APP_MIN_VERSION}" ]]; then
     if [[ "${RETVAL}" == *" AVAILABLE"* ]]; then
       APP_OK=1
       echo "...OK"
@@ -268,7 +268,7 @@ function recompile {
   echo "Recompiling schema ${SCHEMA}"
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF SQLFORMAT ANSICONSOLE
     conn ${CONNECTION}
     exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
 
