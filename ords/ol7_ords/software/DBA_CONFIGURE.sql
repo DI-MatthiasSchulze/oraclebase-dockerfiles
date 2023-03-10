@@ -682,7 +682,7 @@ BEGIN
       null;
   end;
 
-  if v_ts is null or v_ts like 'APEX%' or v_ts = 'USERS' and createTablespace then
+  if v_ts is null or v_ts like 'APEX%' or v_ts = 'USERS' or v_ts = 'SYSTEM' and createTablespace then
     create_tablespace;
   end if;
 

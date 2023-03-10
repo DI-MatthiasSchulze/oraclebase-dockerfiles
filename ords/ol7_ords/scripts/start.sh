@@ -162,14 +162,11 @@ function dba_configure {
   echo "******************************************************************************"
   echo "Configuring schema ${SCHEMA}..."
 
-  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     @DBA_CONFIGURE.sql
 EOF
-)
-
-  echo "RETVAL: ${RETVAL}"
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
