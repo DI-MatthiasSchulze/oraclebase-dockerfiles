@@ -219,8 +219,9 @@ function install_app {
 EOF
 )
 
+  echo "RETVAL1: ${RETVAL}"
   RETVAL="${RETVAL//[$'\t\r\n']}"
-  echo "${RETVAL}"
+  echo "RETVAL2: ${RETVAL}"
 
   if [[ "${RETVAL}" > "${AMV}" ]]; then
     if [[ "${RETVAL}" == *" AVAILABLE"* ]]; then
