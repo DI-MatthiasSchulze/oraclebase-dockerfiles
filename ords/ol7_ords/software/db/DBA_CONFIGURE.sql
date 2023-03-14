@@ -4,8 +4,7 @@ create or replace procedure DBA_CONFIGURE
   createSchema              Boolean default true,   -- create the schema
   createWorkspace           Boolean default true,   -- create the APEX workspace
   createApexAdmin           Boolean default true,   -- create ADMIN user in APEX workspace
-  createApexUsers           Boolean default false,  -- create default users in APEX workspace
---installApp                Boolean default false,  -- install packaged application from repository
+  createApexUsers           Boolean default true,   -- create default users in APEX workspace
   insertDemoData            Boolean default false,  -- insert some initial demonstration data into the TEST tenant
   optionDashboard           Boolean default true,   -- install dashboard objects
   optionFiletransfer        Boolean default true,   -- create directories for file transfer
@@ -14,12 +13,10 @@ create or replace procedure DBA_CONFIGURE
   optionTranslateMode       Boolean default false,  -- extend APEX for dynamic translations
   smtpHost                  Varchar2 default 'mail.smtp2go.com',
   smtpPort                  Number   default 465,
-  packagedApp_Intrack       Number   default 1000,  -- AppID packaged
-  packagedApp_Dashboard     Number   default 1100,
   rootPath                  Varchar2 default 'c:/intrack/'||lower(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')),
   imagesDir                 Varchar2 default 'bilder',
   filesDir                  Varchar2 default 'files',
-  storageOptions            Varchar2 default 'size 10M autoextend on next 10M maxsize 100M extent management local autoallocate segment space management auto',
+  storageOptions            Varchar2 default 'size 10M autoextend on next 10M maxsize unlimited extent management local autoallocate segment space management auto',
   runIt                     Boolean default false,
   dropIt                    Boolean default false
  ) AUTHID CURRENT_USER as
@@ -271,32 +268,48 @@ create or replace procedure DBA_CONFIGURE
   */
   procedure create_aq
   is
+    n constant varchar2(30) := 'INTRACK_FI_TASK_QUEUE';
+    s varchar2(1000);
   begin
-    DBMS_OUTPUT.Put_Line ('/*  creating queue in '||vSchema||'... */');
 
-    x('CREATE OR REPLACE TYPE '||vSchema||'.INTRACK_FI_TASK_TYPE AS OBJECT (
-      task          VARCHAR2(255),
-      info1         VARCHAR2(255),
-      info2         VARCHAR2(255),
-      info3         VARCHAR2(255),
-      details       VARCHAR2(4000)
-    )');
+    select max(name)
+    into   s
+    from   all_queues
+    where  owner = vSchema
+      and  name  = n
+      and  ENQUEUE_ENABLED = 'YES'
+      and  DEQUEUE_ENABLED = 'YES'
+    ;
 
-    x('begin DBMS_AQADM.create_queue_table (
-      queue_table        => '''||vSchema||'.INTRACK_FI_TASK_QUEUE_QTAB'',
-      queue_payload_type => '''||vSchema||'.INTRACK_FI_TASK_TYPE''
-    ); end;', failsafe => true);
+    if s is null then
+      DBMS_OUTPUT.Put_Line ('/*  creating queue in '||vSchema||'... */');
 
-    x('begin DBMS_AQADM.create_queue (
-      queue_name         => '''||vSchema||'.INTRACK_FI_TASK_QUEUE'',
-      queue_table        => '''||vSchema||'.INTRACK_FI_TASK_QUEUE_QTAB''
-    ); end;', failsafe => true);
+      x('CREATE OR REPLACE TYPE '||vSchema||'.INTRACK_FI_TASK_TYPE AS OBJECT (
+        task          VARCHAR2(255),
+        info1         VARCHAR2(255),
+        info2         VARCHAR2(255),
+        info3         VARCHAR2(255),
+        details       VARCHAR2(4000)
+      )', failsafe => true);
 
-    x('begin DBMS_AQADM.start_queue (
-      queue_name         => '''||vSchema||'.INTRACK_FI_TASK_QUEUE'',
-      enqueue            => TRUE
-    ); end;', failsafe => true);
+      x('begin DBMS_AQADM.create_queue_table (
+        queue_table        => '''||vSchema||'.'||n||'_QTAB'',
+        queue_payload_type => '''||vSchema||'.INTRACK_FI_TASK_TYPE''
+      ); end;', failsafe => true);
 
+      x('begin DBMS_AQADM.create_queue (
+        queue_name         => '''||vSchema||'.'||n||''',
+        queue_table        => '''||vSchema||'.'||n||'_QTAB''
+      ); end;', failsafe => true);
+
+      x('begin DBMS_AQADM.start_queue (
+        queue_name         => '''||vSchema||'.'||n||''',
+        enqueue            => TRUE
+      ); end;', failsafe => true);
+
+    else
+      DBMS_OUTPUT.Put_Line ('/* Queue '||vSchema||'.'||n||' is already installed */');
+    end if;
   end;
 
 
@@ -406,43 +419,43 @@ create or replace procedure DBA_CONFIGURE
   /*
   ** *******************************************************
   */
-  procedure install_apex_application
-  is
-    l_installed_app_id number;
-  begin
-
-    x('begin apex_util.set_workspace('''||vSchema||'''); end;');
-    x('begin apex_application_install.set_workspace_id( apex_util.find_security_group_id( p_workspace => '''||vSchema||''')); end;');
-    x('begin apex_application_install.generate_application_id; end;');
-    x('begin apex_application_install.generate_offset; end;');
-    x('begin apex_application_install.set_schema('''||vSchema||'''); end;');
-    x('begin apex_application_install.set_application_alias('''||vSchema||'''); end;');
-  --x('apex_application_install.set_application_alias( 'F' || apex_application_install.get_application_id )');
-
-    DBMS_OUTPUT.Put_Line ('/* Installing packaged APP as #'||apex_application_install.get_application_id||'... */' );
-    x('declare app_id number; begin app_id := APEX_PKG_APP_INSTALL.INSTALL (
-      p_app_id              => '||packagedApp_Intrack||',
-      p_authentication_type => APEX_AUTHENTICATION.C_TYPE_APEX_ACCOUNTS,
-      p_schema              => '''||vSchema||'''
-    ); end;', failsafe => true);
-
-    x('begin '|| vApexSchema || '.wwv_flow_pkg_app_api.sync_application_metadata( p_security_group_id => '||v_wsid||', p_application_id => '||packagedApp_Intrack||' ); end;');
-
-    if optionDashboard then
-      x('begin apex_application_install.generate_application_id; end;');
-      x('begin apex_application_install.generate_offset; end;');
-
-      DBMS_OUTPUT.Put_Line ('/* Installing packaged APP as #'||apex_application_install.get_application_id||'... */' );
-      x('declare app_id number; begin app_id := APEX_PKG_APP_INSTALL.INSTALL (
-        p_app_id              => '||packagedApp_Dashboard||',
-        p_authentication_type => APEX_AUTHENTICATION.C_TYPE_APEX_ACCOUNTS,
-        p_schema              => '''||vSchema||'''
-      ); end;', failsafe => true);
-
-      x('begin '|| vApexSchema || '.wwv_flow_pkg_app_api.sync_application_metadata( p_security_group_id => '||v_wsid||', p_application_id => '||packagedApp_Dashboard||' ); end;');
-    end if;
-
-  end;
+--  procedure install_apex_application
+--  is
+--    l_installed_app_id number;
+--  begin
+--
+--    x('begin apex_util.set_workspace('''||vSchema||'''); end;');
+--    x('begin apex_application_install.set_workspace_id( apex_util.find_security_group_id( p_workspace => '''||vSchema||''')); end;');
+--    x('begin apex_application_install.generate_application_id; end;');
+--    x('begin apex_application_install.generate_offset; end;');
+--    x('begin apex_application_install.set_schema('''||vSchema||'''); end;');
+--    x('begin apex_application_install.set_application_alias('''||vSchema||'''); end;');
+--  --x('apex_application_install.set_application_alias( 'F' || apex_application_install.get_application_id )');
+--
+--    DBMS_OUTPUT.Put_Line ('/* Installing packaged APP as #'||apex_application_install.get_application_id||'... */' );
+--    x('declare app_id number; begin app_id := APEX_PKG_APP_INSTALL.INSTALL (
+--      p_app_id              => '||packagedApp_Intrack||',
+--      p_authentication_type => APEX_AUTHENTICATION.C_TYPE_APEX_ACCOUNTS,
+--      p_schema              => '''||vSchema||'''
+--    ); end;', failsafe => true);
+--
+--    x('begin '|| vApexSchema || '.wwv_flow_pkg_app_api.sync_application_metadata( p_security_group_id => '||v_wsid||', p_application_id => '||packagedApp_Intrack||' ); end;');
+--
+--    if optionDashboard then
+--      x('begin apex_application_install.generate_application_id; end;');
+--      x('begin apex_application_install.generate_offset; end;');
+--
+--      DBMS_OUTPUT.Put_Line ('/* Installing packaged APP as #'||apex_application_install.get_application_id||'... */' );
+--      x('declare app_id number; begin app_id := APEX_PKG_APP_INSTALL.INSTALL (
+--        p_app_id              => '||packagedApp_Dashboard||',
+--        p_authentication_type => APEX_AUTHENTICATION.C_TYPE_APEX_ACCOUNTS,
+--        p_schema              => '''||vSchema||'''
+--      ); end;', failsafe => true);
+--
+--      x('begin '|| vApexSchema || '.wwv_flow_pkg_app_api.sync_application_metadata( p_security_group_id => '||v_wsid||', p_application_id => '||packagedApp_Dashboard||' ); end;');
+--    end if;
+--
+--  end;
 
 
   /*

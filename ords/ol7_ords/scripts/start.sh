@@ -1,19 +1,22 @@
-echo "******************************************************************************"
-echo "$(date) Check if this is the first run."
-echo "******************************************************************************"
+function echo2 {
+  PAR=$1
+  echo "$(date): ${PAR}"
+}
+
+echo2 "******************************************************************************"
+echo2 "Check if this is the first run..."
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
-  echo "First run."
+  echo2 "First run."
   FIRST_RUN="true"
   touch ~/CONTAINER_ALREADY_STARTED_FLAG
 else
-  echo "Not first run."
+  echo2 "Not first run."
 fi
 
-echo "******************************************************************************"
-echo "$(date) Handle shutdowns."
-echo "$(date) docker stop --time=30 {container}"
-echo "******************************************************************************"
+echo2 "******************************************************************************"
+echo2 "Handle shutdowns."
+echo2 "docker stop --time=30 {container}"
 function gracefulshutdown {
   ${CATALINA_HOME}/bin/shutdown.sh
 }
@@ -22,27 +25,38 @@ trap gracefulshutdown SIGINT
 trap gracefulshutdown SIGTERM
 trap gracefulshutdown SIGKILL
 
-echo "******************************************************************************"
-echo "$(date) Check DB is available."
-echo "******************************************************************************"
+echo2 "******************************************************************************"
+echo2 "Check DB is available..."
 export PATH=${PATH}:${JAVA_HOME}/bin
 
-function check_db {
+function first_sqlcl_call {
+  # wegen WARNING: Failed to save history
   CONNECTION=$1
-  echo "checking db... ${CONNECTION}"
 
-  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG > /dev/null 2>&1 << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
     SELECT 'Alive' FROM dual;
 EOF
 )
+}
 
-  echo "${RETVAL}"
+function check_db {
+  CONNECTION=$1
+  #echo "checking db... ${CONNECTION}"
+
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    SELECT 'Connected to '||sys_context('USERENV','DB_NAME')||': '|| banner as f FROM V\$Version;
+EOF
+)
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
-  if [ "${RETVAL}" = "Alive" ]; then
+  echo2 "${RETVAL}"
+
+  if [[ "${RETVAL}" == "Connected to"* ]]; then
     DB_OK=0
   else
     DB_OK=1
@@ -65,7 +79,7 @@ EOF
 )
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
-  echo "Detected APEX Version: ${RETVAL}, expecting >= ${APEX_MIN_VERSION}"
+  echo2 "Detected APEX Version: ${RETVAL}, expecting >= ${APEX_MIN_VERSION}"
 
   AMV="${APEX_MIN_VERSION}"
   VALID='VALID'
@@ -73,14 +87,14 @@ EOF
   if [[ "${RETVAL}" > "${AMV}" ]]; then
     if [[ "${RETVAL}" == *"$VALID"* ]]; then
       APEX_OK=1
-      echo "...OK"
+      echo2 "...OK"
     else
       APEX_OK=0
-      echo "...APEX is not VALID"
+      echo2 "...APEX is not VALID"
     fi
   else
     APEX_OK=0
-    echo "...APEX Installation/Upgrade needed"
+    echo2 "...APEX Installation/Upgrade needed"
   fi
 
   RETVAL1=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
@@ -97,9 +111,8 @@ EOF
 function install_apex {
   CONNECTION=$1
 
-  echo "******************************************************************************"
-  echo "Installing APEX..."
-  echo "******************************************************************************"
+  echo2 "******************************************************************************"
+  echo2 "Installing APEX..."
   cd ${SOFTWARE_DIR}/apex
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
@@ -108,35 +121,12 @@ function install_apex {
     @apexins.sql SYSAUX SYSAUX TEMP /i/
 EOF
 
-  echo "******************************************************************************"
-  echo "APEX INSTALL RESULT:"
-  echo "${RETVAL}"
+  echo2 "******************************************************************************"
+  echo2 "APEX INSTALL RESULT:"
+  echo2 "${RETVAL}"
 
-  echo "******************************************************************************"
-  echo "Create APEX Admin user..."
-  echo "******************************************************************************"
-
-  /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
-    conn ${CONNECTION} as SYSDBA
-    whenever sqlerror exit sql.sqlcode
-    BEGIN
-      APEX_UTIL.set_security_group_id( 10 );
-
-      APEX_UTIL.create_user(
-          p_user_name       => 'ADMIN',
-          p_email_address   => 'me@example.com',
-          p_web_password    => 'oracle',
-          p_developer_privs => 'ADMIN' );
-
-      APEX_UTIL.set_security_group_id( null );
-      COMMIT;
-    END;
-    /
-EOF
-
-  echo "******************************************************************************"
-  echo "APEX REST Config..."
+  echo2 "******************************************************************************"
+  echo2 "APEX REST Config..."
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
@@ -145,8 +135,8 @@ EOF
     @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
 EOF
 
-  echo "******************************************************************************"
-  echo "Checking APEX after installation..."
+  echo2 "******************************************************************************"
+  echo2 "Checking APEX after installation..."
   check_apex ${CONNECTION}
 
 }
@@ -159,38 +149,59 @@ function dba_configure {
   SMTP_HOST=$5
   SMTP_PORT=$6
 
-  echo "******************************************************************************"
-  echo "Configuring schema ${SCHEMA}..."
+  echo2 "******************************************************************************"
+  echo2 "Configuring schema ${SCHEMA}..."
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     @DBA_CONFIGURE.sql
 EOF
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
     conn ${CONNECTION} as SYSDBA
     exec dbms_output.enable(null)
     begin dba_configure
       ('${SCHEMA}',
-       optionFiletransfer  => true,
-       rootPath            => '${DB_ROOTPATH}/${SCHEMA}',
-       smtpHost            => '${SMTP_HOST}',
-       smtpPort            => '${SMTP_PORT}',
-       runIt               => true
+       smtpHost      => '${SMTP_HOST}',
+       smtpPort      => '${SMTP_PORT}',
+       rootPath      => '${DB_ROOTPATH}',
+       runIt         => true
       );
     end;
     /
 EOF
 
-  echo "******************************************************************************"
-  echo "configuration of schema ${SCHEMA} finished"
-  echo "******************************************************************************"
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    select nvl(max(OBJECT_NAME),'NOT_INSTALLED')
+    from   ALL_OBJECTS
+    where  OWNER = '${SCHEMA}' and OBJECT_NAME  = 'CCFLAGS'
+    ;
+EOF
+)
+
+  RETVAL="${RETVAL//[$'\t\r\n']}"
+
+  echo2 "CCFLAGS: ${RETVAL}"
+
+  if [[ "${RETVAL}" = "NOT_INSTALLED" ]]; then
+  echo2 "Initial installation - installing CCFLAGS package..."
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    alter session set current_schema = ${SCHEMA};
+    @CCFLAGS.sql
+EOF
+  fi
+
+  echo2 "******************************************************************************"
+  echo2 "Configuration of schema ${SCHEMA} finished."
 }
 
-
-function install_app {
+function check_app {
   CONNECTION=$1
   WORKSPACE=$2
   SCHEMA=$3
@@ -199,8 +210,8 @@ function install_app {
   FILENAME=$6
   APP_MIN_VERSION=$7
 
-  echo "******************************************************************************"
-  echo "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME} @${CONNECTION} in workspace/schema ${WORKSPACE}/${SCHEMA}"
+  echo2 "******************************************************************************"
+  echo2 "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME} in workspace/schema ${WORKSPACE}/${SCHEMA}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
@@ -223,15 +234,31 @@ EOF
   if [[ "${RETVAL}" > "${APP_MIN_VERSION}" ]]; then
     if [[ "${RETVAL}" == *" AVAILABLE"* ]]; then
       APP_OK=1
-      echo "...OK"
+      echo2 "...OK"
     else
       APP_OK=0
-      echo "...APP is UNAVAILABLE"
+      echo2 "...APP is UNAVAILABLE"
     fi
   else
     APP_OK=0
-    echo "found ${RETVAL} ...App Installation/Upgrade needed"
+    echo2 "found ${RETVAL} ...App Installation/Upgrade needed"
   fi
+}
+
+
+
+
+###############################################################################
+function install_app {
+  #CONNECTION=$1
+  #WORKSPACE=$2
+  #SCHEMA=$3
+  #APP_ID=$4
+  #APP_ALIAS=$5
+  #FILENAME=$6
+  #APP_MIN_VERSION=$7
+
+  check_app $1 $2 $3 $4 $5 $6 $7
 
   if [ ${APP_OK} -eq 0 ]; then
 
@@ -249,10 +276,9 @@ EOF
       @${FILENAME}
 EOF
 
+    echo2 "App #${APP_ID}: ${APP_ALIAS} installation completed"
+    #check_app $1 $2 $3 $4 $5 $6 $7
   fi
-
-  echo "******************************************************************************"
-  echo "app #${APP_ID}: ${APP_ALIAS} installed"
 
 }
 
@@ -261,22 +287,46 @@ EOF
 function recompile {
   CONNECTION=$1
 
-  echo "******************************************************************************"
-  echo "Recompiling schema ${SCHEMA}"
-
-  /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET SQLFORMAT ANSICONSOLE
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION}
-    exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
-
-    select *
-    from   all_errors
-    where  owner = SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')
-    order  by 1,2,3
+    select to_char(count(*)) from all_errors where owner = '${SCHEMA}'
     ;
 EOF
+)
 
-  echo "******************************************************************************"
+  RETVAL="${RETVAL//[$'\t\r\n']}"
+
+  echo2 "******************************************************************************"
+  echo2 "Schema ${SCHEMA} has ${RETVAL} compilation errors"
+
+  if [[ "${RETVAL}" > "0" ]]; then
+
+    /u01/sqlcl/bin/sql -S /NOLOG << EOF
+      SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF LINESIZE 1000
+      conn ${CONNECTION}
+      exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
+      Select rpad(lower(replace(UER.type,' ', '_'))||' '||lower(UER.name)||' (' || (UER.line) || ')', 40)||UER.text as err
+      From   user_errors UER
+      ;
+EOF
+
+    RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+      SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+      conn ${CONNECTION}
+      select to_char(count(*)) from all_errors where owner = '${SCHEMA}'
+      ;
+EOF
+)
+    echo2 "******************************************************************************"
+  fi
+
+  RETVAL="${RETVAL//[$'\t\r\n']}"
+  if [[ "${RETVAL}" > "0" ]]; then
+    echo2 "😱 Still ${RETVAL} Compilation error(s)"
+  else
+    echo2 "😅 No compilation errors!"
+  fi
 }
 
 # **************************************************************************************
@@ -284,19 +334,20 @@ EOF
 
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
+first_sqlcl_call ${CONNECTION}
+
 check_db ${CONNECTION}
 while [ ${DB_OK} -eq 1 ]
 do
-  echo "DB not available yet. Waiting for 30 seconds."
+  echo2 "DB not available yet. Waiting for 30 seconds."
   sleep 30
   check_db ${CONNECTION}
 done
 
 
 if [ ! -d ${CATALINA_BASE}/conf ]; then
-  echo "******************************************************************************"
-  echo "$(date) New CATALINA_BASE location."
-  echo "******************************************************************************"
+  echo2 "******************************************************************************"
+  echo2 "New CATALINA_BASE location."
   cp -r ${CATALINA_HOME}/conf ${CATALINA_BASE}
   cp -r ${CATALINA_HOME}/logs ${CATALINA_BASE}
   cp -r ${CATALINA_HOME}/temp ${CATALINA_BASE}
@@ -305,9 +356,8 @@ if [ ! -d ${CATALINA_BASE}/conf ]; then
 fi
 
 if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
-  echo "******************************************************************************"
-  echo "$(date) First time APEX images."
-  echo "******************************************************************************"
+  echo2 "******************************************************************************"
+  echo2 "First time APEX images."
   mkdir -p ${CATALINA_BASE}/webapps/i/
   # cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
   ln -s ${SOFTWARE_DIR}/apex/images ${CATALINA_BASE}/webapps/i
@@ -315,9 +365,8 @@ if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
 fi
 
 if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
-  echo "******************************************************************************"
-  echo "$(date) Overwrite APEX images."
-  echo "******************************************************************************"
+  echo2 "******************************************************************************"
+  echo2 "Overwrite APEX images..."
   cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
 fi
 
@@ -329,9 +378,8 @@ if [ "${FIRST_RUN}" == "true" ]; then
     install_apex ${CONNECTION}
   fi
 
-  echo "******************************************************************************"
-  echo "$(date) Configure ORDS. Safe to run on DB with existing config."
-  echo "******************************************************************************"
+  echo2 "******************************************************************************"
+  echo2 "Configuring ORDS..."
   cd ${ORDS_HOME}
 
   export ORDS_CONFIG=${ORDS_CONF}
@@ -357,29 +405,24 @@ EOF
 
 fi
 
-
-echo "******************************************************************************"
-echo "$(date) Installing Apps..."
-echo "******************************************************************************"
-
 export WORKSPACE="INTRACK"
 export SCHEMA="INTRACK"
 
-cd ${SOFTWARE_DIR}
+cd ${SOFTWARE_DIR}/db
+
 dba_configure ${CONNECTION} ${WORKSPACE} ${SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_PORT}
 
 CONNECTION="${SCHEMA}/oracle@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack.sql"   "2.0.2"
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashboard.sql" "1.0.0"
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack.sql"   "2.0.4"
+install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashb.sql"     "1.0.1"
 
 recompile   ${CONNECTION}
 
 
 if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
-  echo "******************************************************************************"
-  echo "$(date) Configure HTTPS."
-  echo "******************************************************************************"
+  echo2 "******************************************************************************"
+  echo2 "Configure HTTPS..."
   mkdir -p ${KEYSTORE_DIR}
   cd ${KEYSTORE_DIR}
   ${JAVA_HOME}/bin/keytool -genkey -keyalg RSA -alias selfsigned -keystore keystore.jks \
@@ -395,15 +438,12 @@ if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
   cp ${SCRIPTS_DIR}/web.xml ${CATALINA_BASE}/conf
 fi;
 
-echo "******************************************************************************"
-echo "$(date) Start Tomcat."
-echo "******************************************************************************"
+echo2 "******************************************************************************"
+echo2 "Starting Tomcat..."
 ${CATALINA_HOME}/bin/startup.sh
 
-echo "******************************************************************************"
-echo "$(date) Tail the catalina.out file as a background process"
-echo "$(date) and wait on the process so script never ends."
-echo "******************************************************************************"
+echo2 "******************************************************************************"
+echo2 "Tail the catalina.out file as a background process and wait on the process so script never ends..."
 tail -f ${CATALINA_BASE}/logs/catalina.out &
 bgPID=$!
 wait $bgPID
