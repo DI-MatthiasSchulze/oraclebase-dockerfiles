@@ -13,6 +13,7 @@ create or replace procedure DBA_CONFIGURE
   optionTranslateMode       Boolean default false,  -- extend APEX for dynamic translations
   smtpHost                  Varchar2 default 'mail.smtp2go.com',
   smtpPort                  Number   default 465,
+  ordsPath                  Varchar2 default 'intrack',
   rootPath                  Varchar2 default 'c:/intrack/'||lower(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')),
   imagesDir                 Varchar2 default 'bilder',
   filesDir                  Varchar2 default 'files',
@@ -310,6 +311,23 @@ create or replace procedure DBA_CONFIGURE
     else
       DBMS_OUTPUT.Put_Line ('/* Queue '||vSchema||'.'||n||' is already installed */');
     end if;
+  end;
+
+
+  /*
+  ** *******************************************************
+  */
+  procedure enable_ords
+  is
+  begin
+    DBMS_OUTPUT.Put_Line ('/*  enabling ORDS ... */');
+
+    x('begin ORDS.ENABLE_SCHEMA(p_enabled => TRUE,
+      p_schema              => '''||vSchema||''',
+      p_url_mapping_type    => ''BASE_PATH'',
+      p_url_mapping_pattern => '''||ordsPath||''',
+      p_auto_rest_auth      => FALSE); end;', failsafe => true);
+
   end;
 
 
@@ -726,17 +744,15 @@ BEGIN
 
   create_apex_users;
 
-  extend_apex;
+  --enable_ords;
 
-  --if installApp then
-  --  install_apex_application;
-  --end if;
+  extend_apex;
 
   if insertDemoData then
     insert_demo_data;
   end if;
 
-  print_compile_errors;
+  --print_compile_errors;
 
 end;
 /

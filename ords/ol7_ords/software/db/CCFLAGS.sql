@@ -1,11 +1,11 @@
-create PACKAGE "CCFLAGS" as
+create or replace PACKAGE "CCFLAGS" as
 
   /*
   ** PLSQL Compiler-Flags
   **
   ** bedingte Compilierung, s. http://download.oracle.com/docs/cd/B28359_01/appdev.111/b28370/fundamentals.htm#insertedID9
   **
-  ** $if CCFLAGS.VKS_BORDERO $then
+  ** $if CCFLAGS.APEXFEATURES $then
   **   ...
   ** $end
   **
@@ -15,8 +15,8 @@ create PACKAGE "CCFLAGS" as
   **
   */
 
-  WINDOWS                     constant boolean := false;   -- enable Windows-Specific code
-  LINUX                       constant boolean := true;    -- enable Linux-Specific code
+  WINDOWS                     constant boolean := true ;   -- enable Windows-Specific code
+  LINUX                       constant boolean := false;   -- enable Linux-Specific code
 
   APEXFEATURES                constant boolean := true;    -- Oracle APEX Integration
   ORDFEATURES                 constant boolean := false;   -- Oracle Multimedia Integration
@@ -24,3 +24,4 @@ create PACKAGE "CCFLAGS" as
   LVSPWD                      constant boolean := false;   -- Password is stored as "LVS-Encrypted"
 
 End CCFLAGS;
+/

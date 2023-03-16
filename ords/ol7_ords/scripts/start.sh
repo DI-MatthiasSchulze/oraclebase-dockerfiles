@@ -4,14 +4,15 @@ function echo2 {
 }
 
 echo2 "******************************************************************************"
-echo2 "Check if this is the first run..."
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.0.1 \$Revision: 1 $"
+
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
-  echo2 "First run."
+  #echo2 "First run."
   FIRST_RUN="true"
   touch ~/CONTAINER_ALREADY_STARTED_FLAG
-else
-  echo2 "Not first run."
+#else
+  #echo2 "Not first run."
 fi
 
 echo2 "******************************************************************************"
@@ -70,10 +71,8 @@ function check_apex {
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
-    select nvl(max(version || ' ' || schema || ' ' || status), '0.0.0 NOT_INSTALLED')
+    select nvl(max(decode(COMP_ID, 'APEX', version || ' ' || schema || ' ' || status, '')), '0.0.0 NOT_INSTALLED')
     from   dba_registry
-    where  COMP_ID = 'APEX'
-    group by schema, version, status
     ;
 EOF
 )
@@ -148,6 +147,7 @@ function dba_configure {
   DB_ROOTPATH=$4
   SMTP_HOST=$5
   SMTP_PORT=$6
+  ORDS_PATH=$7
 
   echo2 "******************************************************************************"
   echo2 "Configuring schema ${SCHEMA}..."
@@ -166,6 +166,7 @@ EOF
       ('${SCHEMA}',
        smtpHost      => '${SMTP_HOST}',
        smtpPort      => '${SMTP_PORT}',
+       ordsPath      => '${ORDS_PATH}',
        rootPath      => '${DB_ROOTPATH}',
        runIt         => true
       );
@@ -188,7 +189,7 @@ EOF
   echo2 "CCFLAGS: ${RETVAL}"
 
   if [[ "${RETVAL}" = "NOT_INSTALLED" ]]; then
-  echo2 "Initial installation - installing CCFLAGS package..."
+  echo2 "Installing CCFLAGS package..."
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
@@ -215,7 +216,7 @@ function check_app {
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION}
+    conn ${CONNECTION} as SYSDBA
     select nvl(max(substr(version, 1, instr(version, ' '))
                    || case when availability_status like '%Available%' then 'AVAILABLE' else 'UNAVAILABLE' end),
                '0.0.0 NOT_INSTALLED'
@@ -237,7 +238,7 @@ EOF
       echo2 "...OK"
     else
       APP_OK=0
-      echo2 "...APP is UNAVAILABLE"
+      echo2 "...unexpected app status: ${RETVAL}"
     fi
   else
     APP_OK=0
@@ -264,7 +265,8 @@ function install_app {
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
-      conn ${CONNECTION}
+      conn ${CONNECTION} as SYSDBA
+      alter session set current_schema = ${SCHEMA};
       exec apex_util.set_workspace('${WORKSPACE}')
       exec apex_application_install.set_workspace_id( apex_util.find_security_group_id( p_workspace => '${WORKSPACE}'))
       exec apex_application_install.set_schema('${SCHEMA}')
@@ -289,7 +291,8 @@ function recompile {
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION}
+    conn ${CONNECTION} as SYSDBA
+    alter session set current_schema = ${SCHEMA};
     select to_char(count(*)) from all_errors where owner = '${SCHEMA}'
     ;
 EOF
@@ -298,22 +301,23 @@ EOF
   RETVAL="${RETVAL//[$'\t\r\n']}"
 
   echo2 "******************************************************************************"
-  echo2 "Schema ${SCHEMA} has ${RETVAL} compilation errors"
 
   if [[ "${RETVAL}" > "0" ]]; then
+    echo2 "Schema ${SCHEMA} has ${RETVAL} compilation errors! Compiling..."
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF LINESIZE 1000
-      conn ${CONNECTION}
+      conn ${CONNECTION} as SYSDBA
+      alter session set current_schema = ${SCHEMA};
       exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
-      Select rpad(lower(replace(UER.type,' ', '_'))||' '||lower(UER.name)||' (' || (UER.line) || ')', 40)||UER.text as err
+      Select rpad(replace(UER.type,' ', '_')||' '||UER.name||' (' || (UER.line) || ')', 40)||UER.text as err
       From   user_errors UER
       ;
 EOF
 
     RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-      conn ${CONNECTION}
+      conn ${CONNECTION} as SYSDBA
       select to_char(count(*)) from all_errors where owner = '${SCHEMA}'
       ;
 EOF
@@ -325,7 +329,7 @@ EOF
   if [[ "${RETVAL}" > "0" ]]; then
     echo2 "😱 Still ${RETVAL} Compilation error(s)"
   else
-    echo2 "😅 No compilation errors!"
+    echo2 "✅ No compilation errors!"
   fi
 }
 
@@ -357,10 +361,10 @@ fi
 
 if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
   echo2 "******************************************************************************"
-  echo2 "First time APEX images."
+  echo2 "Extracting APEX images..."
   mkdir -p ${CATALINA_BASE}/webapps/i/
-  # cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
-  ln -s ${SOFTWARE_DIR}/apex/images ${CATALINA_BASE}/webapps/i
+  cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
+  #ln -s ${SOFTWARE_DIR}/apex/images ${CATALINA_BASE}/webapps/i
   APEX_IMAGES_REFRESH="false"
 fi
 
@@ -405,17 +409,12 @@ EOF
 
 fi
 
-export WORKSPACE="INTRACK"
-export SCHEMA="INTRACK"
-
 cd ${SOFTWARE_DIR}/db
 
-dba_configure ${CONNECTION} ${WORKSPACE} ${SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_PORT}
+dba_configure ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_PORT} ${ORDS_PATH}
 
-CONNECTION="${SCHEMA}/oracle@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
-
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1001" "intrack"   "intrack.sql"   "2.0.4"
-install_app ${CONNECTION} ${WORKSPACE} ${SCHEMA} "1002" "dashboard" "dashb.sql"     "1.0.1"
+install_app ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${APP1_ID} ${APP1_ALIAS} ${APP1_FILENAME} ${APP1_VERSION}
+install_app ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${APP2_ID} ${APP2_ALIAS} ${APP2_FILENAME} ${APP2_VERSION}
 
 recompile   ${CONNECTION}
 
