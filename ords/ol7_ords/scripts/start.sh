@@ -48,7 +48,7 @@ function check_db {
   #echo "checking db... ${CONNECTION}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
+    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     SELECT 'Connected to '||sys_context('USERENV','DB_NAME')||': '|| banner as f FROM V\$Version;
 EOF
