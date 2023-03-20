@@ -42,8 +42,8 @@ LABEL maintainer="info@dresden-informatik.de"
 
 # ------------------------------------------------------------------------------
 # Define fixed (build time) environment variables.
-#ENV JAVA_SOFTWARE="OpenJDK11U-jdk_aarch64_linux_hotspot_11.0.18_10.tar.gz"     \
-ENV JAVA_SOFTWARE="OpenJDK11U-jdk_x64_linux_hotspot_11.0.9_11.tar.gz"         \
+ENV JDK_AARCH64="OpenJDK11U-jdk_aarch64_linux_hotspot_11.0.18_10.tar.gz"       \
+    JDK_X64="OpenJDK11U-jdk_x64_linux_hotspot_11.0.9_11.tar.gz"                \
     TOMCAT_SOFTWARE="apache-tomcat-9.0.71.tar.gz"                              \
     ORDS_SOFTWARE="ords-latest.zip"                                            \
     APEX_SOFTWARE="apex-latest.zip"                                            \
@@ -75,11 +75,12 @@ ENV DB_HOSTNAME="localhost"                                                    \
     APP2_ALIAS="dashboard"                                                     \
     APP2_FILENAME="dashb_22_2.sql"                                             \
     APP2_VERSION="1.9.9"                                                       \
+    APEX_TABLESPACE="APEX"                                                     \
+    APEX_TABLESPACE_FILES="APEX"                                               \
     APEX_PUBLIC_USER_PASSWORD="ApexPassword1"                                  \
-    APEX_TABLESPACE="SYSAUX"                                                   \
-    TEMP_TABLESPACE="TEMP"                                                     \
     APEX_LISTENER_PASSWORD="ApexPassword1"                                     \
-    APEX_REST_PASSWORD="ApexPassword1"                                         \
+    APEX_REST_PUBLIC_USER_PASSWORD="ApexPassword1"                             \
+    APEX_STATIC_FILES_PATH="/i/"                                               \
     PUBLIC_PASSWORD="ApexPassword1"                                            \
     SYSDBA_USER="C##DBAPI_CDB_ADMIN"                                           \
     SYSDBA_PASSWORD="SysPassword1"                                             \
@@ -87,6 +88,7 @@ ENV DB_HOSTNAME="localhost"                                                    \
     SMTP_HOST="mail.smtp2go.com"                                               \
     SMTP_PORT="465"                                                            \
     KEYSTORE_PASSWORD="KeystorePassword1"                                      \
+    TEMP_TABLESPACE="TEMP"                                                     \
     AJP_SECRET="AJPSecret1"                                                    \
     AJP_ADDRESS="::1"                                                          \
     APEX_IMAGES_REFRESH="false"                                                \
@@ -102,8 +104,10 @@ COPY scripts/* ${SCRIPTS_DIR}/
 # ------------------------------------------------------------------------------
 # Unpack all the software and remove the media.
 # No config done in the build phase.
-RUN sh ${SCRIPTS_DIR}/install_os_packages.sh                                && \
-    sh ${SCRIPTS_DIR}/ords_software_installation.sh
+ARG TARGETPLATFORM
+RUN if [ "$TARGETPLATFORM" = "linux/arm64" ]; then JDK=$JDK_AARCH64; else JDK=$JDK_X64; fi && \
+    sh ${SCRIPTS_DIR}/install_os_packages.sh && \
+    sh ${SCRIPTS_DIR}/ords_software_installation.sh ${JDK}
 
 # Perform the following actions as the tomcat user
 USER tomcat

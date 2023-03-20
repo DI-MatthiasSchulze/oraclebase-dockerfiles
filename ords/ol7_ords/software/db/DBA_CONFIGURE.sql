@@ -11,6 +11,8 @@ create or replace procedure DBA_CONFIGURE
   optionSMS                 Boolean default true,   -- create acl entry for SMS gateway
   optionSMTP                Boolean default true,   -- create acl entry for SMTP mails
   optionTranslateMode       Boolean default false,  -- extend APEX for dynamic translations
+  apexTablespace            Varchar2 default 'APEX',
+  apexTablespaceFiles       Varchar2 default 'APEX_FILES',
   smtpHost                  Varchar2 default 'mail.smtp2go.com',
   smtpPort                  Number   default 465,
   ordsPath                  Varchar2 default 'intrack',
@@ -18,6 +20,7 @@ create or replace procedure DBA_CONFIGURE
   imagesDir                 Varchar2 default 'bilder',
   filesDir                  Varchar2 default 'files',
   storageOptions            Varchar2 default 'size 10M autoextend on next 10M maxsize unlimited extent management local autoallocate segment space management auto',
+  ApexTablespaceOnly        Boolean default false,
   runIt                     Boolean default false,
   dropIt                    Boolean default false
  ) AUTHID CURRENT_USER as
@@ -56,7 +59,7 @@ create or replace procedure DBA_CONFIGURE
   /*
   ** ID of the Apex Workspace with the same name as the schema
   */
-  v_wsid apex_workspaces.workspace_id%type;
+  v_wsid Number;
 
   n number;
   s varchar2(31768);
@@ -194,26 +197,42 @@ create or replace procedure DBA_CONFIGURE
   ** *******************************************************
   */
   procedure create_tablespace
-  is
+   (p_tablespace                      in varchar2,
+    p_quota                           in Boolean := false
+   )
+   is
     v_fn    varchar2(1000);           -- Datafile name inkl path
+    n       Varchar2(1000);
   begin
     begin
-      execute immediate 'begin select replace(replace(name, ''system01.'', '''||strSCHEMA||'_01.''), ''SYSTEM01.'', '''||strSCHEMA||'_01.'')
-      into   :V_FN
-      from   v$datafile
-      where  lower(name) like ''%system01.dbf''; end;'
-      using in out v_fn
+      select tablespace_name
+      into   n
+      from   dba_tablespaces where TABLESPACE_NAME = p_tablespace
       ;
 
-    exception
-      when others then
-        DBMS_OUTPUT.Put_Line ('/*  Failed to detect file name template: '||SQLERRM||' */');
+    exception when no_data_found then
+
+      begin
+        execute immediate 'begin select replace(replace(name, ''system01.'', '''||p_tablespace||'_01.''), ''SYSTEM01.'', '''||p_tablespace||'_01.'')
+        into   :V_FN
+        from   v$datafile
+        where  lower(name) like ''%system01.dbf''; end;'
+        using in out v_fn
+        ;
+
+      exception
+        when others then
+          DBMS_OUTPUT.Put_Line ('/*  Failed to detect file name template: '||SQLERRM||' */');
+      end;
+
+      x('create tablespace '||p_tablespace||' datafile '''||v_fn||''' '||storageOptions);
+
+      if p_quota then
+        x('alter user '||vSchema||' default tablespace '||p_tablespace);
+        x('alter user '||vSchema||' quota unlimited on '||p_tablespace);
+      end if;
+
     end;
-
-    x('create tablespace '||vSchema||' datafile '''||v_fn||''' '||storageOptions);
-    x('alter user '||vSchema||' default tablespace '||vSchema);
-    x('alter user '||vSchema||' quota unlimited on '||vSchema);
-
   end;
 
 
@@ -654,20 +673,21 @@ create or replace procedure DBA_CONFIGURE
 BEGIN
 
   /* determine current APEX schema */
-  begin
-    select table_owner
-    into   vApexSchema
-    from   all_synonyms
-    where  synonym_name = 'APEX_APPLICATION'
-      and  owner = 'PUBLIC'
-    ;
+  if not ApexTablespaceOnly then
+    begin
+      select table_owner
+      into   vApexSchema
+      from   all_synonyms
+      where  synonym_name = 'APEX_APPLICATION'
+        and  owner = 'PUBLIC'
+      ;
 
-  exception
-    when no_data_found then
-      DBMS_OUTPUT.Put_Line ('Error: APEX not installed');
-      raise;
-  end;
-
+    exception
+      when no_data_found then
+        DBMS_OUTPUT.Put_Line ('Error: APEX not installed');
+        raise;
+    end;
+  end if;
 
   /* check existing schema */
   begin
@@ -691,30 +711,17 @@ BEGIN
     return;
   end if;
 
-  if v_uid is null and createSchema then
-    create_schema;
+  if createTablespace then
+    create_tablespace (apexTablespace, false);
+    create_tablespace (apexTablespaceFiles,false);
+    create_tablespace (vSchema, true);
+    if ApexTablespaceOnly then
+      return;
+    end if;
   end if;
 
-
-  /* check existing tablespace */
-  begin
-    execute immediate 'begin select default_tablespace
-    into   :v_ts
-    from   dba_users
-    where  upper(username) = '''||upper(vSchema)||'''; end;'
-    using in out v_ts
-    ;
-
-  exception
-    when no_data_found then
-      null;
-
-    when others then
-      null;
-  end;
-
-  if v_ts is null or v_ts like 'APEX%' or v_ts = 'USERS' or v_ts = 'SYSTEM' and createTablespace then
-    create_tablespace;
+  if v_uid is null and createSchema then
+    create_schema;
   end if;
 
   if not (vSchema = user) then
@@ -722,7 +729,15 @@ BEGIN
   end if;
 
   /* check existing APEX workspace */
-  v_wsid := apex_util.find_security_group_id( p_workspace => vSchema);
+  begin
+    execute immediate 'begin :v_wsid := apex_util.find_security_group_id( p_workspace => :schema); end;'
+    using out v_wsid, in vSchema
+    ;
+
+  exception
+    when others then
+      DBMS_OUTPUT.Put_Line ('/*  Failed to get workspace ID: '||SQLERRM||' */');
+  end;
 
   grant_network_access;
 

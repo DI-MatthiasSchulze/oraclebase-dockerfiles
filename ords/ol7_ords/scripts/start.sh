@@ -43,6 +43,7 @@ EOF
 )
 }
 
+# *************************************************************************************************
 function check_db {
   CONNECTION=$1
   #echo "checking db... ${CONNECTION}"
@@ -64,6 +65,22 @@ EOF
   fi
 }
 
+
+# *************************************************************************************************
+function install_dba_configure {
+  CONNECTION=$1
+
+  echo2 "******************************************************************************"
+  echo2 "Installing procedure DBA_CONFIGURE..."
+
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
+    conn ${CONNECTION} as SYSDBA
+    @DBA_CONFIGURE.sql
+EOF
+}
+
+# *************************************************************************************************
 function check_apex {
   CONNECTION=$1
 
@@ -106,7 +123,7 @@ EOF
 
 }
 
-
+# *************************************************************************************************
 function install_apex {
   CONNECTION=$1
 
@@ -117,26 +134,47 @@ function install_apex {
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
-    @apexins.sql SYSAUX SYSAUX TEMP /i/
+    @apxsilentins.sql ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES} ${TEMP_TABLESPACE} ${APEX_STATIC_FILES_PATH} ${APEX_PUBLIC_USER_PASSWORD} ${APEX_LISTENER_PASSWORD} ${APEX_REST_PUBLIC_USER_PASSWORD}
 EOF
 
-  echo2 "******************************************************************************"
-  echo2 "APEX INSTALL RESULT:"
-  echo2 "${RETVAL}"
-
-  echo2 "******************************************************************************"
-  echo2 "APEX REST Config..."
-
-  /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
-    conn ${CONNECTION} as SYSDBA
-    whenever sqlerror exit sql.sqlcode
-    @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
-EOF
+#  echo2 "******************************************************************************"
+#  echo2 "APEX REST Config..."
+#
+#  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+#    SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
+#    conn ${CONNECTION} as SYSDBA
+#    whenever sqlerror exit sql.sqlcode
+#    @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
+#EOF
 
   echo2 "******************************************************************************"
   echo2 "Checking APEX after installation..."
   check_apex ${CONNECTION}
+}
+
+function dba_create_apex_tablespaces {
+  CONNECTION=$1
+  SCHEMA=$2
+  APEX_TABLESPACE=$3
+  APEX_TABLESPACE_FILES=$4
+
+  echo2 "******************************************************************************"
+  echo2 "Checking/creating APEX Tablespaces..."
+
+  /u01/sqlcl/bin/sql -S /NOLOG << EOF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
+    conn ${CONNECTION} as SYSDBA
+    exec dbms_output.enable(null)
+    begin dba_configure
+      ('${SCHEMA}',
+       apexTablespace       => '${APEX_TABLESPACE}',
+       apexTablespaceFiles  => '${APEX_TABLESPACE_FILES}',
+       apexTablespaceOnly   => true,
+       runIt                => true
+      );
+    end;
+    /
+EOF
 
 }
 
@@ -151,12 +189,6 @@ function dba_configure {
 
   echo2 "******************************************************************************"
   echo2 "Configuring schema ${SCHEMA}..."
-
-  /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
-    conn ${CONNECTION} as SYSDBA
-    @DBA_CONFIGURE.sql
-EOF
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
@@ -373,6 +405,13 @@ if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
   echo2 "Overwrite APEX images..."
   cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
 fi
+
+
+cd ${SOFTWARE_DIR}/db
+
+install_dba_configure ${CONNECTION}
+
+dba_create_apex_tablespaces ${CONNECTION} ${APP_SCHEMA} ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES}
 
 if [ "${FIRST_RUN}" == "true" ]; then
 

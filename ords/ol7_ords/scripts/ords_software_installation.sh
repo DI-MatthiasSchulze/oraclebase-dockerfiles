@@ -5,11 +5,13 @@ echo "Create docker_fg group and tomcat user."
 groupadd -g 1042 docker_fg
 useradd tomcat -u 501 -G docker_fg
 
-echo "Java setup."
+echo "Java setup. JDK=$1"
+JAVA_SOFTWARE=$1
 mkdir -p /u01/java
 cd /u01/java
 tar -xzf ${SOFTWARE_DIR}/${JAVA_SOFTWARE}
-rm -f ${SOFTWARE_DIR}/${JAVA_SOFTWARE}
+rm -f ${SOFTWARE_DIR}/${JDK_AARCH64}
+rm -f ${SOFTWARE_DIR}/${JDK_X64}
 TEMP_FILE=`ls`
 ln -s ${TEMP_FILE} latest
 
