@@ -5,7 +5,7 @@ create or replace procedure DBA_CONFIGURE
   createWorkspace           Boolean default true,   -- create the APEX workspace
   createApexAdmin           Boolean default true,   -- create ADMIN user in APEX workspace
   createApexUsers           Boolean default true,   -- create default users in APEX workspace
-  insertDemoData            Boolean default false,  -- insert some initial demonstration data into the TEST tenant
+  insertDemoData            Boolean default true,   -- insert some initial demonstration data into the TEST tenant
   optionDashboard           Boolean default true,   -- install dashboard objects
   optionFiletransfer        Boolean default true,   -- create directories for file transfer
   optionSMS                 Boolean default true,   -- create acl entry for SMS gateway
