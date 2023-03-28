@@ -81,7 +81,6 @@ ENV DB_HOSTNAME="localhost"                                                    \
     APEX_LISTENER_PASSWORD="ApexPassword1"                                     \
     APEX_REST_PUBLIC_USER_PASSWORD="ApexPassword1"                             \
     APEX_STATIC_FILES_PATH="/i/"                                               \
-    PUBLIC_PASSWORD="ApexPassword1"                                            \
     SYSDBA_USER="C##DBAPI_CDB_ADMIN"                                           \
     SYSDBA_PASSWORD="SysPassword1"                                             \
     DB_ROOTPATH="/opt/intrack"                                                 \
