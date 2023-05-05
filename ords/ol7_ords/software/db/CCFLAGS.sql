@@ -14,10 +14,14 @@ create or replace PACKAGE "CCFLAGS" as
   WINDOWS                     constant boolean := case when dbms_utility.port_string like 'IBMPC%' then true  else false end;
   LINUX                       constant boolean := case when dbms_utility.port_string like 'IBMPC%' then false else true  end;
 
-  APEXFEATURES                constant boolean := true;    -- Oracle APEX Integration
-  ORDFEATURES                 constant boolean := false;   -- Oracle Multimedia Integration
+  APEXFEATURES                constant boolean := true;   -- Oracle APEX Integration
+  ORDFEATURES                 constant boolean := false;  -- Oracle Multimedia Integration
 
-  LVSPWD                      constant boolean := false;   -- Password is stored as "LVS-Encrypted"
+  LVSPWD                      constant boolean := false;  -- Password is stored as "LVS-Encrypted"
+
+  trc_warn                    constant boolean := true;   -- trace warnings, errors and success messages
+  trc_info                    constant boolean := true;   -- trace more messages
+  trc_debug                   constant boolean := true;   -- trace all
 
 End CCFLAGS;
 /

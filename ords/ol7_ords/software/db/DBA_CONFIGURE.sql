@@ -205,9 +205,9 @@ create or replace procedure DBA_CONFIGURE
     n       Varchar2(1000);
   begin
     begin
-      select tablespace_name
-      into   n
-      from   dba_tablespaces where TABLESPACE_NAME = p_tablespace
+
+      execute immediate 'begin select tablespace_name into :n from dba_tablespaces where TABLESPACE_NAME = :p_tablespace; end;'
+      using in out n, p_tablespace
       ;
 
     exception when no_data_found then
@@ -739,9 +739,13 @@ BEGIN
       DBMS_OUTPUT.Put_Line ('/*  Failed to get workspace ID: '||SQLERRM||' */');
   end;
 
-  grant_network_access;
+  if optionSMS or optionSMTP then
+    grant_network_access;
+  end if;
 
-  create_directories;
+  if optionFiletransfer then
+    create_directories;
+  end if;
 
   if optionFiletransfer then
     create_aq;
@@ -752,16 +756,20 @@ BEGIN
   if v_wsid is null then
     if createWorkspace then
       create_apex_workspace;
-    else
-      raise_application_error(-20000, 'APEX workspace "'||vSchema||'" does not exist, must be created first!');
+    --else
+    --  raise_application_error(-20000, 'APEX workspace "'||vSchema||'" does not exist, must be created first!');
     end if;
   end if;
 
-  create_apex_users;
+  if createApexAdmin or createApexUsers then
+    create_apex_users;
+  end if;
 
   --enable_ords;
 
-  extend_apex;
+  if optionTranslateMode then
+    extend_apex;
+  end if;
 
   if insertDemoData then
     insert_demo_data;

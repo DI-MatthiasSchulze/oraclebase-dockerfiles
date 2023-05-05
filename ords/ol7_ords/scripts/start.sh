@@ -4,7 +4,7 @@ function echo2 {
 }
 
 echo2 "******************************************************************************"
-echo2 "🔷 start.sh - ORDS/APEX container v. 0.0.1 \$Revision: 1 $"
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.2.1 \$Revision: 1 $"
 
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
@@ -34,7 +34,8 @@ function first_sqlcl_call {
   # wegen WARNING: Failed to save history
   CONNECTION=$1
 
-  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG > /dev/null 2>&1 << EOF
+  #RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG > /dev/null 2>&1 << EOF
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
