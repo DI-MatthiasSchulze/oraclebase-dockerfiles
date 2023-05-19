@@ -35,12 +35,20 @@ cd /u01
 unzip -oq ${SOFTWARE_DIR}/${SQLCL_SOFTWARE}
 #rm -f ${SOFTWARE_DIR}/${SQLCL_SOFTWARE}
 
-echo "APEX Images."
+echo "APEX setup."
 cd ${SOFTWARE_DIR}
 unzip -oq ${SOFTWARE_DIR}/${APEX_SOFTWARE}
 rm -f ${SOFTWARE_DIR}/${APEX_SOFTWARE}
 #mv ${SOFTWARE_DIR}/apex/images .
 #rm -Rf ${SOFTWARE_DIR}/apex
+
+if [ -n "${APEX_SOFTWARE_PATCH}" ]; then
+  echo "APEX patch setup."
+  cd ${SOFTWARE_DIR}
+  mkdir ${SOFTWARE_DIR}/apex/patch
+  unzip -oq ${SOFTWARE_DIR}/${APEX_SOFTWARE_PATCH} -d ${SOFTWARE_DIR}/apex/patch
+  rm -f ${SOFTWARE_DIR}/${APEX_SOFTWARE_PATCH}
+fi
 
 echo "Set file permissions."
 chmod u+x ${SCRIPTS_DIR}/*.sh

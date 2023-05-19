@@ -4,7 +4,7 @@ function echo2 {
 }
 
 echo2 "******************************************************************************"
-echo2 "🔷 start.sh - ORDS/APEX container v. 0.2.2"
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.3.0"
 
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
@@ -141,6 +141,22 @@ EOF
 #    whenever sqlerror exit sql.sqlcode
 #    @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
 #EOF
+
+
+  #if [ -d "${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]" ]; then
+    echo2 "APEX patch found. Installing..."
+    cd ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
+
+    /u01/sqlcl/bin/sql -S /NOLOG << EOF
+      SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF ECHO OFF
+      conn ${CONNECTION} as SYSDBA
+      @catpatch.sql
+EOF
+
+#  else
+#    echo2 "⚠️ APEX patch not found. Using Production version"
+#  fi
+
 
   echo2 "******************************************************************************"
   echo2 "Checking APEX after installation..."
@@ -396,12 +412,26 @@ if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
   cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
   #ln -s ${SOFTWARE_DIR}/apex/images ${CATALINA_BASE}/webapps/i
   APEX_IMAGES_REFRESH="false"
+
+  if [ -d ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]; then
+    echo2 "Adding/overwriting APEX images from patch..."
+    cp -R ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/images/* ${CATALINA_BASE}/webapps/i/
+  else
+    echo2 "⚠️ no images patch"
+  fi
 fi
 
 if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
   echo2 "******************************************************************************"
   echo2 "Overwrite APEX images..."
   cp -R ${SOFTWARE_DIR}/apex/images/* ${CATALINA_BASE}/webapps/i/
+
+  if [ -d ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]; then
+    echo2 "Overwrite APEX images from patch..."
+    cp -R ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/images/* ${CATALINA_BASE}/webapps/i/
+  else
+    echo2 "⚠️ no images patch"
+  fi
 fi
 
 
