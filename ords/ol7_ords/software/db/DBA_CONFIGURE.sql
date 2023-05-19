@@ -189,7 +189,10 @@ create or replace procedure DBA_CONFIGURE
   is
   begin
     DBMS_OUTPUT.Put_Line ('/* Setting up schema '||vSchema||'... */');
-    x('create user '||vSchema||' identified by oracle');
+  --x('create user '||vSchema||' identified by oracle');
+    x('create user '||vSchema||'');
+    x('alter user '||vSchema||' default tablespace '||vSchema, failsafe=>true);
+    x('alter user '||vSchema||' quota unlimited on '||vSchema, failsafe=>true);
   end;
 
 
@@ -197,13 +200,14 @@ create or replace procedure DBA_CONFIGURE
   ** *******************************************************
   */
   procedure create_tablespace
-   (p_tablespace                      in varchar2,
-    p_quota                           in Boolean := false
+   (p_tablespace                      in varchar2
    )
    is
     v_fn    varchar2(1000);           -- Datafile name inkl path
     n       Varchar2(1000);
   begin
+    DBMS_OUTPUT.Put_Line ('/*  Checking/Creating Tablespace '||p_tablespace||' */');
+
     begin
 
       execute immediate 'begin select tablespace_name into :n from dba_tablespaces where TABLESPACE_NAME = :p_tablespace; end;'
@@ -225,12 +229,7 @@ create or replace procedure DBA_CONFIGURE
           DBMS_OUTPUT.Put_Line ('/*  Failed to detect file name template: '||SQLERRM||' */');
       end;
 
-      x('create tablespace '||p_tablespace||' datafile '''||v_fn||''' '||storageOptions);
-
-      if p_quota then
-        x('alter user '||vSchema||' default tablespace '||p_tablespace);
-        x('alter user '||vSchema||' quota unlimited on '||p_tablespace);
-      end if;
+      x('create tablespace '||p_tablespace||' datafile '''||v_fn||''' '||storageOptions, failsafe=>true);
 
     end;
   end;
@@ -432,6 +431,12 @@ create or replace procedure DBA_CONFIGURE
 
     g ('SELECT  on SYS.V_$MYSTAT'  );
     g ('SELECT  on SYS.V_$SESSION' );
+
+    /*
+    ** wegen ORA-00604, ORA-01031 Insufficient Privileges bei REST-Zugriffen
+    */
+    g ('SELECT  on ORDS_METADATA.ORDS_PARAMETERS'  );
+    g ('SELECT  on ORDS_METADATA.ORDS_SCHEMAS' );
 
     if optionDashboard then
       g ('SELECT  on SYS.V_$OSSTAT');
@@ -712,9 +717,9 @@ BEGIN
   end if;
 
   if createTablespace then
-    create_tablespace (apexTablespace, false);
-    create_tablespace (apexTablespaceFiles,false);
-    create_tablespace (vSchema, true);
+    create_tablespace (apexTablespace);
+    create_tablespace (apexTablespaceFiles);
+    create_tablespace (vSchema);
     if ApexTablespaceOnly then
       return;
     end if;

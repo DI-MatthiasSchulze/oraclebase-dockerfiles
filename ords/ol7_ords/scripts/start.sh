@@ -4,7 +4,7 @@ function echo2 {
 }
 
 echo2 "******************************************************************************"
-echo2 "🔷 start.sh - ORDS/APEX container v. 0.2.1 \$Revision: 1 $"
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.2.2"
 
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
@@ -27,19 +27,13 @@ trap gracefulshutdown SIGTERM
 trap gracefulshutdown SIGKILL
 
 echo2 "******************************************************************************"
-echo2 "Check DB is available..."
 export PATH=${PATH}:${JAVA_HOME}/bin
 
 function first_sqlcl_call {
   # wegen WARNING: Failed to save history
-  CONNECTION=$1
 
-  #RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG > /dev/null 2>&1 << EOF
-  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
+  RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG > /dev/null 2>&1 << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION} as SYSDBA
-    whenever sqlerror exit sql.sqlcode
-    SELECT 'Alive' FROM dual;
 EOF
 )
 }
@@ -133,7 +127,7 @@ function install_apex {
   cd ${SOFTWARE_DIR}/apex
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
-    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
+    SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF ECHO OFF
     conn ${CONNECTION} as SYSDBA
     @apxsilentins.sql ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES} ${TEMP_TABLESPACE} ${APEX_STATIC_FILES_PATH} ${APEX_PUBLIC_USER_PASSWORD} ${APEX_LISTENER_PASSWORD} ${APEX_REST_PUBLIC_USER_PASSWORD}
 EOF
@@ -371,7 +365,10 @@ EOF
 
 CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
+echo2 "Initializing sqlcl..."
 first_sqlcl_call ${CONNECTION}
+
+echo2 "Check DB is available..."
 
 check_db ${CONNECTION}
 while [ ${DB_OK} -eq 1 ]
