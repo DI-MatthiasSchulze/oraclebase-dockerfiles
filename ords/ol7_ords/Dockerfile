@@ -99,7 +99,7 @@ ENV DB_HOSTNAME="localhost"                                                    \
 # ------------------------------------------------------------------------------
 # Get all the files for the build.
 COPY software/* ${SOFTWARE_DIR}/
-COPY software/db ${SOFTWARE_DIR}/db
+COPY software/db/* ${SOFTWARE_DIR}/db/
 COPY scripts/* ${SCRIPTS_DIR}/
 
 # ------------------------------------------------------------------------------
