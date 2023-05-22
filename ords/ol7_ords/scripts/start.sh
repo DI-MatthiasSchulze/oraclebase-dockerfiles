@@ -54,7 +54,7 @@ EOF
   RETVAL="${RETVAL//[$'\t\r\n']}"
   echo2 "${RETVAL}"
 
-  if [[ "${RETVAL}" == "Connected to OPEN "* ]]; then
+  if [[ "${RETVAL}" == "Connected to READ WRITE "* ]]; then
     DB_OK=0
   else
     DB_OK=1
