@@ -98,9 +98,8 @@ ENV DB_HOSTNAME="localhost"                                                    \
 
 # ------------------------------------------------------------------------------
 # Get all the files for the build.
-COPY software/* ${SOFTWARE_DIR}/
-COPY software/db/* ${SOFTWARE_DIR}/db/
-COPY scripts/* ${SCRIPTS_DIR}/
+COPY software/ ${SOFTWARE_DIR}/
+COPY scripts/ ${SCRIPTS_DIR}/
 
 # ------------------------------------------------------------------------------
 # Unpack all the software and remove the media.
