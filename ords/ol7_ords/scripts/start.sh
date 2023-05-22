@@ -46,14 +46,15 @@ function check_db {
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
-    SELECT 'Connected to '||sys_context('USERENV','DB_NAME')||': '|| banner as f FROM V\$Version;
+    SELECT 'Connected to '||P.OPEN_MODE||' '||sys_context('USERENV','DB_NAME')||': '|| banner as f FROM V\$Version V, V\$PDBs P
+    WHERE  P.con_id = SYS_CONTEXT('USERENV', 'CON_ID');
 EOF
 )
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
   echo2 "${RETVAL}"
 
-  if [[ "${RETVAL}" == "Connected to"* ]]; then
+  if [[ "${RETVAL}" == "Connected to OPEN "* ]]; then
     DB_OK=0
   else
     DB_OK=1
