@@ -4,7 +4,7 @@ function echo2 {
 }
 
 echo2 "******************************************************************************"
-echo2 "🔷 start.sh - ORDS/APEX container v. 0.3.1"
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.3.2"
 
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
@@ -17,7 +17,6 @@ fi
 
 echo2 "******************************************************************************"
 echo2 "Handle shutdowns."
-echo2 "docker stop --time=30 {container}"
 function gracefulshutdown {
   ${CATALINA_HOME}/bin/shutdown.sh
 }
@@ -41,7 +40,6 @@ EOF
 # *************************************************************************************************
 function check_db {
   CONNECTION=$1
-  #echo "checking db... ${CONNECTION}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
@@ -52,11 +50,12 @@ EOF
 )
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
-  echo2 "${RETVAL}"
 
   if [[ "${RETVAL}" == "Connected to READ WRITE "* ]]; then
-    DB_OK=0
+    echo2 "🟢 ${RETVAL}"
+    DB_OK=1
   else
+    echo2 "🔴 ${RETVAL}"
     DB_OK=1
   fi
 }
@@ -84,7 +83,7 @@ function check_apex {
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
     conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
-    select nvl(max(decode(COMP_ID, 'APEX', version || ' ' || schema || ' ' || status, '')), '0.0.0 NOT_INSTALLED')
+    select nvl(max(decode(COMP_ID, 'APEX', status || ' ' || version || ' ' || schema, '')), '0.0.0 NOT_INSTALLED')
     from   dba_registry
     ;
 EOF
@@ -93,20 +92,14 @@ EOF
   RETVAL="${RETVAL//[$'\t\r\n']}"
   echo2 "Detected APEX Version: ${RETVAL}, expecting >= ${APEX_MIN_VERSION}"
 
-  AMV="${APEX_MIN_VERSION}"
-  VALID='VALID'
+  AMV="VALID ${APEX_MIN_VERSION}"
 
   if [[ "${RETVAL}" > "${AMV}" ]]; then
-    if [[ "${RETVAL}" == *"$VALID"* ]]; then
-      APEX_OK=1
-      echo2 "...OK"
-    else
-      APEX_OK=0
-      echo2 "...APEX is not VALID"
-    fi
+    APEX_OK=1
+    echo2 "✅ OK"
   else
     APEX_OK=0
-    echo2 "...APEX Installation/Upgrade needed"
+    echo2 "⚠️ APEX Installation/Upgrade needed"
   fi
 
   RETVAL1=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
@@ -144,8 +137,8 @@ EOF
 #EOF
 
 
-  #if [ -d "${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]" ]; then
-    echo2 "APEX patch found. Installing..."
+  if [ -d "${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]" ]; then
+    echo2 "💡 APEX patch found. Installing..."
     cd ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
@@ -154,9 +147,9 @@ EOF
       @catpatch.sql
 EOF
 
-#  else
-#    echo2 "⚠️ APEX patch not found. Using Production version"
-#  fi
+  else
+    echo2 "⚠️ APEX patch not found. Skipping patch installation."
+  fi
 
 
   echo2 "******************************************************************************"
@@ -177,11 +170,12 @@ function dba_create_apex_tablespaces {
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
     conn ${CONNECTION} as SYSDBA
     exec dbms_output.enable(null)
-    begin dba_configure
+    begin ANONYMOUS."_DBA_CONFIGURE"
       ('${SCHEMA}',
        apexTablespace       => '${APEX_TABLESPACE}',
        apexTablespaceFiles  => '${APEX_TABLESPACE_FILES}',
        apexTablespaceOnly   => true,
+       storageOptions       => '${APEX_TABLESPACE_STORAGE_OPTIONS}',
        runIt                => true
       );
     end;
@@ -206,7 +200,7 @@ function dba_configure {
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
     conn ${CONNECTION} as SYSDBA
     exec dbms_output.enable(null)
-    begin dba_configure
+    begin ANONYMOUS."_DBA_CONFIGURE"
       ('${SCHEMA}',
        smtpHost      => '${SMTP_HOST}',
        smtpPort      => '${SMTP_PORT}',
@@ -229,8 +223,6 @@ EOF
 )
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
-
-  echo2 "CCFLAGS: ${RETVAL}"
 
   if [[ "${RETVAL}" = "NOT_INSTALLED" ]]; then
   echo2 "Installing CCFLAGS package..."
@@ -279,14 +271,14 @@ EOF
   if [[ "${RETVAL}" > "${APP_MIN_VERSION}" ]]; then
     if [[ "${RETVAL}" == *" AVAILABLE"* ]]; then
       APP_OK=1
-      echo2 "...OK"
+      echo2 "✅ OK"
     else
       APP_OK=0
-      echo2 "...unexpected app status: ${RETVAL}"
+      echo2 "🔴️ unexpected app status: ${RETVAL}"
     fi
   else
     APP_OK=0
-    echo2 "found ${RETVAL} ...App Installation/Upgrade needed"
+    echo2 "⚠️ found ${RETVAL} ...App Installation/Upgrade needed"
   fi
 }
 
@@ -347,7 +339,7 @@ EOF
   echo2 "******************************************************************************"
 
   if [[ "${RETVAL}" > "0" ]]; then
-    echo2 "Schema ${SCHEMA} has ${RETVAL} compilation errors! Compiling..."
+    echo2 "⚠️ Schema ${SCHEMA} has ${RETVAL} compilation errors! Compiling..."
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF LINESIZE 1000
@@ -371,7 +363,7 @@ EOF
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
   if [[ "${RETVAL}" > "0" ]]; then
-    echo2 "😱 Still ${RETVAL} Compilation error(s)"
+    echo2 "🔴 Still ${RETVAL} Compilation error(s)"
   else
     echo2 "✅ No compilation errors!"
   fi
@@ -388,9 +380,9 @@ first_sqlcl_call ${CONNECTION}
 echo2 "Check DB is available..."
 
 check_db ${CONNECTION}
-while [ ${DB_OK} -eq 1 ]
+while [ ${DB_OK} -eq 0 ]
 do
-  echo2 "DB not available yet. Waiting for 30 seconds."
+  echo2 "🔴 DB not available yet. Waiting for 30 seconds."
   sleep 30
   check_db ${CONNECTION}
 done
@@ -417,8 +409,6 @@ if [ ! -d ${CATALINA_BASE}/webapps/i ]; then
   if [ -d ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]; then
     echo2 "Adding/overwriting APEX images from patch..."
     cp -R ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/images/* ${CATALINA_BASE}/webapps/i/
-  else
-    echo2 "⚠️ no images patch"
   fi
 fi
 
@@ -430,8 +420,6 @@ if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
   if [ -d ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9] ]; then
     echo2 "Overwrite APEX images from patch..."
     cp -R ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/images/* ${CATALINA_BASE}/webapps/i/
-  else
-    echo2 "⚠️ no images patch"
   fi
 fi
 
@@ -506,7 +494,7 @@ if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
 fi;
 
 echo2 "******************************************************************************"
-echo2 "Starting Tomcat..."
+echo2 "🟢 Starting Tomcat..."
 ${CATALINA_HOME}/bin/startup.sh
 
 echo2 "******************************************************************************"

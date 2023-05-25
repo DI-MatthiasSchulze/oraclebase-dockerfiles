@@ -1,4 +1,4 @@
-create or replace procedure DBA_CONFIGURE
+create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
  (strSchema                 Varchar2 default SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'),
   createTablespace          Boolean default true,   -- create the tablespace
   createSchema              Boolean default true,   -- create the schema
@@ -15,11 +15,11 @@ create or replace procedure DBA_CONFIGURE
   apexTablespaceFiles       Varchar2 default 'APEX_FILES',
   smtpHost                  Varchar2 default 'mail.smtp2go.com',
   smtpPort                  Number   default 465,
-  ordsPath                  Varchar2 default 'intrack',
-  rootPath                  Varchar2 default 'c:/intrack/'||lower(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')),
-  imagesDir                 Varchar2 default 'bilder',
+  ordsPath                  Varchar2 default lower(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')),
+  rootPath                  Varchar2 default '/apps/'||lower(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA')),
+  imagesDir                 Varchar2 default 'images',
   filesDir                  Varchar2 default 'files',
-  storageOptions            Varchar2 default 'size 10M autoextend on next 10M maxsize unlimited extent management local autoallocate segment space management auto',
+  storageOptions            Varchar2 default 'size 100M autoextend on',
   ApexTablespaceOnly        Boolean default false,
   runIt                     Boolean default false,
   dropIt                    Boolean default false
@@ -34,13 +34,13 @@ create or replace procedure DBA_CONFIGURE
   **
   ** neuen Workspace erstellen und konfigurieren:
   **
-  **      begin dba_configure('INTRACK_DEMO_0026', doit => true); end;
+  **      begin ANONYMOUS."_DBA_CONFIGURE"('INTRACK_DEMO_0026', doit => true); end;
   **
   **
   **
   ** * aktuelles Schema wiederholt konfigurieren (nach Apex-Upgrade erforderlich)
   **
-  **      begin intrack_dba_configure(pDoit => true); end;
+  **      begin ANONYMOUS."_DBA_CONFIGURE"(pDoit => true); end;
   **
   **
   **
@@ -205,6 +205,7 @@ create or replace procedure DBA_CONFIGURE
    is
     v_fn    varchar2(1000);           -- Datafile name inkl path
     n       Varchar2(1000);
+    v_so    Varchar2(1000) := nvl(storageOptions, 'size 100M autoextend on');
   begin
     DBMS_OUTPUT.Put_Line ('/*  Checking/Creating Tablespace '||p_tablespace||' */');
 
@@ -226,10 +227,11 @@ create or replace procedure DBA_CONFIGURE
 
       exception
         when others then
-          DBMS_OUTPUT.Put_Line ('/*  Failed to detect file name template: '||SQLERRM||' */');
+          DBMS_OUTPUT.Put_Line ('/* file name template not found, assuming OMF */');
+          null;
       end;
 
-      x('create tablespace '||p_tablespace||' datafile '''||v_fn||''' '||storageOptions, failsafe=>true);
+      x('create tablespace '||p_tablespace||(case when v_fn is null then '' else ' datafile '''||v_fn||'''' end) ||' '||v_so, failsafe=>true);
 
     end;
   end;
@@ -783,4 +785,7 @@ BEGIN
   --print_compile_errors;
 
 end;
+/
+
+GRANT INHERIT PRIVILEGES ON USER "SYS" TO PUBLIC;
 /
