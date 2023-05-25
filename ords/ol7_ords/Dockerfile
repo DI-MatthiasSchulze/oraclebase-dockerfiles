@@ -51,6 +51,7 @@ ENV JDK_AARCH64="OpenJDK11U-jdk_aarch64_linux_hotspot_11.0.18_10.tar.gz"       \
     APEX_SOFTWARE_PATCH="p34628174_2220_Generic.zip"                           \
     SOFTWARE_DIR="/u01/software"                                               \
     SCRIPTS_DIR="/u01/scripts"                                                 \
+    SQL_DIR="/u01/sql"                                                         \
     KEYSTORE_DIR="/u01/keystore"                                               \
     ORDS_HOME="/u01/ords"                                                      \
     ORDS_CONF="/u01/config/ords"                                               \
@@ -102,6 +103,7 @@ ENV DB_HOSTNAME="localhost"                                                    \
 # Get all the files for the build.
 COPY software/ ${SOFTWARE_DIR}/
 COPY scripts/ ${SCRIPTS_DIR}/
+COPY sql/ ${SQL_DIR}/
 
 # ------------------------------------------------------------------------------
 # Unpack all the software and remove the media.

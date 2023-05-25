@@ -137,7 +137,7 @@ EOF
 #EOF
 
 
-  if [ -d "${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]" ]; then
+  if [ -d "${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/" ]; then
     echo2 "💡 APEX patch found. Installing..."
     cd ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
 
@@ -424,7 +424,7 @@ if [ "${APEX_IMAGES_REFRESH}" == "true" ]; then
 fi
 
 
-cd ${SOFTWARE_DIR}/db
+cd ${SQL_DIR}
 
 install_dba_configure ${CONNECTION}
 
