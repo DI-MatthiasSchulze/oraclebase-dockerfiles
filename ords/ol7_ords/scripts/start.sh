@@ -136,10 +136,13 @@ EOF
 #    @apex_rest_config.sql ${APEX_LISTENER_PASSWORD} ${APEX_REST_PASSWORD}
 #EOF
 
+  cd ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
 
-  if [ -d "${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/" ]; then
-    echo2 "💡 APEX patch found. Installing..."
-    cd ${SOFTWARE_DIR}/apex/patch/*[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]/
+  patchdir=$(basename "$(pwd)")
+  echo2 "patchdir: ${patchdir}"
+
+  if [ -f "${SOFTWARE_DIR}/apex/patch/${patchdir}/catpatch.sql" ]; then
+    echo "💡 APEX patch found at ${patchdir}/catpatch.sql. Installing..."
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF ECHO OFF
@@ -151,6 +154,7 @@ EOF
     echo2 "⚠️ APEX patch not found. Skipping patch installation."
   fi
 
+  cd ${SOFTWARE_DIR}
 
   echo2 "******************************************************************************"
   echo2 "Checking APEX after installation..."
@@ -299,6 +303,8 @@ function install_app {
 
   if [ ${APP_OK} -eq 0 ]; then
 
+    cd ${SQL_DIR}
+
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
       conn ${CONNECTION} as SYSDBA
@@ -315,7 +321,9 @@ function install_app {
 EOF
 
     echo2 "App #${APP_ID}: ${APP_ALIAS} installation completed"
-    #check_app $1 $2 $3 $4 $5 $6 $7
+
+    check_app $1 $2 $3 $4 $5 $6 $7
+
   fi
 
 }
