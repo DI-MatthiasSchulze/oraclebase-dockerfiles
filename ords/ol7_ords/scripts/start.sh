@@ -473,7 +473,7 @@ EOF
 
 fi
 
-cd ${SOFTWARE_DIR}/db
+cd ${SQL_DIR}
 
 dba_configure ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_PORT} ${ORDS_PATH}
 

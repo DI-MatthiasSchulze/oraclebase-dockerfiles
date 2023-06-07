@@ -320,7 +320,8 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
 
       x('begin DBMS_AQADM.create_queue (
         queue_name         => '''||vSchema||'.'||n||''',
-        queue_table        => '''||vSchema||'.'||n||'_QTAB''
+        queue_table        => '''||vSchema||'.'||n||'_QTAB'',
+        retry_delay        => 60
       ); end;', failsafe => true);
 
       x('begin DBMS_AQADM.start_queue (
