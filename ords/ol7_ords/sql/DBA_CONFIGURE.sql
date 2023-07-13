@@ -231,7 +231,7 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
           null;
       end;
 
-      x('create tablespace '||p_tablespace||(case when v_fn is null then '' else ' datafile '''||v_fn||'''' end) ||' '||v_so, failsafe=>true);
+      x('create tablespace '||p_tablespace||(case when v_fn is null then ' datafile ' else ' datafile '''||v_fn||'''' end) ||' '||v_so, failsafe=>true);
 
     end;
   end;

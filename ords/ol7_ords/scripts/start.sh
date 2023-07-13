@@ -4,7 +4,7 @@ function echo2 {
 }
 
 echo2 "******************************************************************************"
-echo2 "🔷 start.sh - ORDS/APEX container v. 0.5.0"
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.5.1"
 
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
