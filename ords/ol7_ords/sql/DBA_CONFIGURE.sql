@@ -4,12 +4,12 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
   createSchema              Boolean default true,   -- create the schema
   createWorkspace           Boolean default true,   -- create the APEX workspace
   createApexAdmin           Boolean default true,   -- create ADMIN user in APEX workspace
---createApexUsers           Boolean default true,   -- create default users in APEX workspace
+  createApexUsers           Boolean default true,   -- create default users in APEX workspace
   insertDemoData            Boolean default true,   -- insert some initial demonstration data into the TEST tenant
   optionDashboard           Boolean default true,   -- install dashboard objects
-  optionFiletransfer        Boolean default false,  -- create directories for file transfer
-  optionSMS                 Boolean default false,   -- create acl entry for SMS gateway
-  optionSMTP                Boolean default false,   -- create acl entry for SMTP mails
+  optionFiletransfer        Boolean default true,   -- create directories for file transfer
+  optionSMS                 Boolean default true,   -- create acl entry for SMS gateway
+  optionSMTP                Boolean default true,   -- create acl entry for SMTP mails
   optionTranslateMode       Boolean default false,  -- extend APEX for dynamic translations
   apexTablespace            Varchar2 default 'APEX',
   apexTablespaceFiles       Varchar2 default 'APEX_FILES',
@@ -21,7 +21,6 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
   filesDir                  Varchar2 default 'files',
   storageOptions            Varchar2 default 'size 100M autoextend on',
   ApexTablespaceOnly        Boolean default false,
-  schemaPassword            varchar2 default 'oracle',
   runIt                     Boolean default false,
   dropIt                    Boolean default false
  ) AUTHID CURRENT_USER as
@@ -190,7 +189,8 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
   is
   begin
     DBMS_OUTPUT.Put_Line ('/* Setting up schema '||vSchema||'... */');
-    x('create user '||vSchema||' identified by "' || schemaPassword||'"');
+  --x('create user '||vSchema||' identified by oracle');
+    x('create user '||vSchema||'');
     x('alter user '||vSchema||' default tablespace '||vSchema, failsafe=>true);
     x('alter user '||vSchema||' quota unlimited on '||vSchema, failsafe=>true);
   end;
@@ -271,33 +271,17 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
     x('begin wwv_flow_api.set_security_group_id(p_security_group_id => apex_util.find_security_group_id( p_workspace => '''||vSchema||''')); end;');
 
     if createApexAdmin then
-      cu
-       (p_user_name                     => 'admin',
-        p_first_name                    => '',
-        p_last_name                     => 'Administrator',
-        p_email_address                 => 'admins@dresden-informatik.de',
-        p_web_password                  => 'admin',
-        p_web_password_format           => 'CLEAR_TEXT',
-        p_developer_privs               => 'ADMIN:CREATE:DATA_LOADER:EDIT:HELP:MONITOR:SQL',
-        p_default_schema                => vSchema,
-        p_change_password_on_first_use  => 'Y',
-        p_first_password_use_occurred   => 'N',
-        p_allow_app_building_yn         => 'Y',
-        p_allow_sql_workshop_yn         => 'Y',
-        p_allow_websheet_dev_yn         => 'N',
-        p_allow_team_development_yn     => 'N',
-        p_allow_access_to_schemas       => ''
-       );
+      cu (p_user_name => 'admin', p_first_name => '',       p_last_name => 'Administrator',   p_email_address  => 'admins@dresden-informatik.de',  p_web_password  => 'admin', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => 'ADMIN:CREATE:DATA_LOADER:EDIT:HELP:MONITOR:SQL',     p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'Y', p_allow_app_building_yn => 'Y', p_allow_sql_workshop_yn => 'Y', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'N', p_allow_access_to_schemas => '');
     end if;
 
-    --if createApexUsers then
-    --  cu (p_user_name => 'TEST',  p_first_name => 'test',   p_last_name => 'test',            p_email_address  => 'info@dresden-informatik.de',    p_web_password  => 'test',  p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
-    --  cu (p_user_name => 'USER1', p_first_name => 'User',   p_last_name => 'Eins',            p_email_address  => 'user1@dresden-informatik.de',   p_web_password  => 'user1', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
-    --  cu (p_user_name => 'USER2', p_first_name => 'User',   p_last_name => 'Zwei',            p_email_address  => 'user2@dresden-informatik.de',   p_web_password  => 'user2', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
-    --  cu (p_user_name => 'USER3', p_first_name => 'User',   p_last_name => 'Drei',            p_email_address  => 'user3@dresden-informatik.de',   p_web_password  => 'user3', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
-    --  cu (p_user_name => 'USER4', p_first_name => 'User',   p_last_name => 'Vier',            p_email_address  => 'user4@dresden-informatik.de',   p_web_password  => 'user4', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
-    --  cu (p_user_name => '789',   p_first_name => '',       p_last_name => 'MDE Anwender',    p_email_address  => 'info@dresden-informatik.de',    p_web_password  => '789',   p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
-    --end if;
+    if createApexUsers then
+      cu (p_user_name => 'TEST',  p_first_name => 'test',   p_last_name => 'test',            p_email_address  => 'info@dresden-informatik.de',    p_web_password  => 'test',  p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
+      cu (p_user_name => 'USER1', p_first_name => 'User',   p_last_name => 'Eins',            p_email_address  => 'user1@dresden-informatik.de',   p_web_password  => 'user1', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
+      cu (p_user_name => 'USER2', p_first_name => 'User',   p_last_name => 'Zwei',            p_email_address  => 'user2@dresden-informatik.de',   p_web_password  => 'user2', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
+      cu (p_user_name => 'USER3', p_first_name => 'User',   p_last_name => 'Drei',            p_email_address  => 'user3@dresden-informatik.de',   p_web_password  => 'user3', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
+      cu (p_user_name => 'USER4', p_first_name => 'User',   p_last_name => 'Vier',            p_email_address  => 'user4@dresden-informatik.de',   p_web_password  => 'user4', p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
+      cu (p_user_name => '789',   p_first_name => '',       p_last_name => 'MDE Anwender',    p_email_address  => 'info@dresden-informatik.de',    p_web_password  => '789',   p_web_password_format => 'CLEAR_TEXT', p_developer_privs => '',                                                   p_default_schema => vSchema, p_change_password_on_first_use => 'N', p_first_password_use_occurred  => 'N', p_allow_app_building_yn => 'N', p_allow_sql_workshop_yn => 'N', p_allow_websheet_dev_yn => 'N', p_allow_team_development_yn => 'Y', p_allow_access_to_schemas => '');
+    end if;
   end;
 
   /*
@@ -377,13 +361,16 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
     DBMS_OUTPUT.Put_Line ('/*  creating directories ... */');
 
     x('create or replace directory '||vSchema||'_bilder as '''||rootPath||'/'||imagesDir||'''');
-    x('create or replace directory '||vSchema||'_from_mobile         as '''||rootPath||'/'||filesDir||'/from-mobile'||'''         ');
-    x('create or replace directory '||vSchema||'_to_mobile           as '''||rootPath||'/'||filesDir||'/to-mobile'||'''           ');
-    x('create or replace directory '||vSchema||'_from_mobile_ok      as '''||rootPath||'/'||filesDir||'/from-mobile/ok'||'''      ');
-    x('create or replace directory '||vSchema||'_from_mobile_err     as '''||rootPath||'/'||filesDir||'/from-mobile/err'||'''     ');
-    x('create or replace directory '||vSchema||'_from_mobile_logs    as '''||rootPath||'/'||filesDir||'/from-mobile/logs'||'''    ');
-    x('create or replace directory '||vSchema||'_from_mobile_script  as '''||rootPath||'/'||filesDir||'/from-mobile/script'||'''  ');
-    x('create or replace directory '||vSchema||'_from_mobile_control as '''||rootPath||'/'||filesDir||'/from-mobile/control'||''' ');
+
+    if optionFiletransfer then
+      x('create or replace directory '||vSchema||'_from_mobile         as '''||rootPath||'/'||filesDir||'/from-mobile'||'''         ');
+      x('create or replace directory '||vSchema||'_to_mobile           as '''||rootPath||'/'||filesDir||'/to-mobile'||'''           ');
+      x('create or replace directory '||vSchema||'_from_mobile_ok      as '''||rootPath||'/'||filesDir||'/from-mobile/ok'||'''      ');
+      x('create or replace directory '||vSchema||'_from_mobile_err     as '''||rootPath||'/'||filesDir||'/from-mobile/err'||'''     ');
+      x('create or replace directory '||vSchema||'_from_mobile_logs    as '''||rootPath||'/'||filesDir||'/from-mobile/logs'||'''    ');
+      x('create or replace directory '||vSchema||'_from_mobile_script  as '''||rootPath||'/'||filesDir||'/from-mobile/script'||'''  ');
+      x('create or replace directory '||vSchema||'_from_mobile_control as '''||rootPath||'/'||filesDir||'/from-mobile/control'||''' ');
+    end if;
 
   end;
 
@@ -459,8 +446,9 @@ create or replace procedure ANONYMOUS."_DBA_CONFIGURE"
       g ('SELECT  on SYS.V_$RECOVERY_FILE_DEST' );
     end if;
 
+    g ('ALL  on DIRECTORY '||vSchema||'_BILDER' );
+
     if optionFiletransfer then
-      g ('ALL  on DIRECTORY '||vSchema||'_BILDER' );
       g ('ALL  on DIRECTORY '||vSchema||'_FROM_MOBILE'         );
       g ('ALL  on DIRECTORY '||vSchema||'_TO_MOBILE'           );
       g ('ALL  on DIRECTORY '||vSchema||'_FROM_MOBILE_OK'      );
@@ -767,7 +755,9 @@ BEGIN
     create_directories;
   end if;
 
-  create_aq;
+  if optionFiletransfer then
+    create_aq;
+  end if;
 
   grant_privileges;
 
@@ -779,7 +769,7 @@ BEGIN
     end if;
   end if;
 
-  if createApexAdmin then -- or createApexUsers then
+  if createApexAdmin or createApexUsers then
     create_apex_users;
   end if;
 

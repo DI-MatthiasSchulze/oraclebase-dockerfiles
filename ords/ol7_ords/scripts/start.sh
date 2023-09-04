@@ -3,11 +3,8 @@ function echo2 {
   echo "$(date): ${PAR}"
 }
 
-CONTAINER_VERSION="0.6.0"
 echo2 "******************************************************************************"
-echo2 "🔷 start.sh - ORDS/APEX container v. ${CONTAINER_VERSION}"
-
-echo "container: ${CONTAINER_VERSION}" > "${CATALINA_HOME}/webapps/ROOT/container_version.txt"
+echo2 "🔷 start.sh - ORDS/APEX container v. 0.5.1"
 
 FIRST_RUN="false"
 if [ ! -f ~/CONTAINER_ALREADY_STARTED_FLAG ]; then
@@ -33,6 +30,7 @@ export PATH=${PATH}:${JAVA_HOME}/bin
 
 function first_sqlcl_call {
   # wegen WARNING: Failed to save history
+
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG > /dev/null 2>&1 << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
 EOF
@@ -41,18 +39,19 @@ EOF
 
 # *************************************************************************************************
 function check_db {
-#  CONNECTION=$1
+  CONNECTION=$1
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 VERIFY OFF HEADING OFF TAB OFF
-    conn ${CONNECTION}
-    SELECT 'Connected to '||sys_context('USERENV','DB_NAME') as f FROM dual;
+    conn ${CONNECTION} as SYSDBA
+    SELECT 'Connected to '||P.OPEN_MODE||' '||sys_context('USERENV','DB_NAME')||': '|| banner as f FROM V\$Version V, V\$PDBs P
+    WHERE  P.con_id = SYS_CONTEXT('USERENV', 'CON_ID');
 EOF
 )
 
   RETVAL="${RETVAL//[$'\t\r\n']}"
 
-  if [[ "${RETVAL}" == "Connected to "* ]]; then
+  if [[ "${RETVAL}" == "Connected to READ WRITE "* ]]; then
     echo2 "🟢 ${RETVAL}"
     DB_OK=1
   else
@@ -64,26 +63,25 @@ EOF
 
 # *************************************************************************************************
 function install_dba_configure {
-#  CONNECTION=$1
+  CONNECTION=$1
 
   echo2 "******************************************************************************"
   echo2 "Installing procedure DBA_CONFIGURE..."
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
-    conn ${CONNECTION_SYSDBA}
-    alter session set current_schema = ANONYMOUS;
+    conn ${CONNECTION} as SYSDBA
     @DBA_CONFIGURE.sql
 EOF
 }
 
 # *************************************************************************************************
 function check_apex {
-#  CONNECTION=$1
+  CONNECTION=$1
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION_SYSDBA}
+    conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
     select nvl(max(decode(COMP_ID, 'APEX', status || ' ' || version || ' ' || schema, '')), '0.0.0 NOT_INSTALLED')
     from   dba_registry
@@ -106,7 +104,7 @@ EOF
 
   RETVAL1=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION_SYSDBA}
+    conn ${CONNECTION} as SYSDBA
     whenever sqlerror exit sql.sqlcode
     alter user apex_public_user identified by "${APEX_PUBLIC_USER_PASSWORD}" account unlock;
 EOF
@@ -116,14 +114,16 @@ EOF
 
 # *************************************************************************************************
 function install_apex {
+  CONNECTION=$1
+
   echo2 "******************************************************************************"
   echo2 "Installing APEX..."
   cd ${SOFTWARE_DIR}/apex
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF ECHO OFF
-    conn ${CONNECTION_SYSDBA}
-    @apxsilentins.sql ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES} ${TEMP_TABLESPACE} ${APEX_STATIC_FILES_PATH} ${APEX_PUBLIC_USER_PASSWORD} ${APEX_LISTENER_PASSWORD} ${APEX_REST_PUBLIC_USER_PASSWORD} ${APEX_INTERNAL_ADMIN_PASSWORD}
+    conn ${CONNECTION} as SYSDBA
+    @apxsilentins.sql ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES} ${TEMP_TABLESPACE} ${APEX_STATIC_FILES_PATH} ${APEX_PUBLIC_USER_PASSWORD} ${APEX_LISTENER_PASSWORD} ${APEX_REST_PUBLIC_USER_PASSWORD} ${APEX_INTERNAL_ADMIM_PASSWORD}
 EOF
 
 #  echo2 "******************************************************************************"
@@ -146,7 +146,7 @@ EOF
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF ECHO OFF
-      conn ${CONNECTION_SYSDBA}
+      conn ${CONNECTION} as SYSDBA
       @catpatch.sql
 EOF
 
@@ -158,20 +158,21 @@ EOF
 
   echo2 "******************************************************************************"
   echo2 "Checking APEX after installation..."
-  check_apex ${CONNECTION_SYSDBA}
+  check_apex ${CONNECTION}
 }
 
 function dba_create_apex_tablespaces {
-  SCHEMA=$1
-  APEX_TABLESPACE=$2
-  APEX_TABLESPACE_FILES=$3
+  CONNECTION=$1
+  SCHEMA=$2
+  APEX_TABLESPACE=$3
+  APEX_TABLESPACE_FILES=$4
 
   echo2 "******************************************************************************"
   echo2 "Checking/creating APEX Tablespaces..."
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
-    conn ${CONNECTION_SYSDBA}
+    conn ${CONNECTION} as SYSDBA
     exec dbms_output.enable(null)
     begin ANONYMOUS."_DBA_CONFIGURE"
       ('${SCHEMA}',
@@ -188,19 +189,20 @@ EOF
 }
 
 function dba_configure {
-  WORKSPACE=$1
-  SCHEMA=$2
-  DB_ROOTPATH=$3
-  SMTP_HOST=$4
-  SMTP_PORT=$5
-  ORDS_PATH=$6
+  CONNECTION=$1
+  WORKSPACE=$2
+  SCHEMA=$3
+  DB_ROOTPATH=$4
+  SMTP_HOST=$5
+  SMTP_PORT=$6
+  ORDS_PATH=$7
 
   echo2 "******************************************************************************"
   echo2 "Configuring schema ${SCHEMA}..."
 
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF SERVEROUTPUT ON
-    conn ${CONNECTION_SYSDBA}
+    conn ${CONNECTION} as SYSDBA
     exec dbms_output.enable(null)
     begin ANONYMOUS."_DBA_CONFIGURE"
       ('${SCHEMA}',
@@ -216,7 +218,7 @@ EOF
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION_SYSDBA}
+    conn ${CONNECTION} as SYSDBA
     select nvl(max(OBJECT_NAME),'NOT_INSTALLED')
     from   ALL_OBJECTS
     where  OWNER = '${SCHEMA}' and OBJECT_NAME  = 'CCFLAGS'
@@ -230,7 +232,7 @@ EOF
   echo2 "Installing CCFLAGS package..."
   /u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
-    conn ${CONNECTION_SYSDBA}
+    conn ${CONNECTION} as SYSDBA
     alter session set current_schema = ${SCHEMA};
     @CCFLAGS.sql
 EOF
@@ -241,20 +243,20 @@ EOF
 }
 
 function check_app {
-#  CONNECTION=$1
-  WORKSPACE=$1
-  SCHEMA=$2
-  APP_ID=$3
-  APP_ALIAS=$4
-  FILENAME=$5
-  APP_MIN_VERSION=$6
+  CONNECTION=$1
+  WORKSPACE=$2
+  SCHEMA=$3
+  APP_ID=$4
+  APP_ALIAS=$5
+  FILENAME=$6
+  APP_MIN_VERSION=$7
 
   echo2 "******************************************************************************"
   echo2 "Checking app #${APP_ID}: ${APP_ALIAS} >= v. ${APP_MIN_VERSION} from ${FILENAME} in workspace/schema ${WORKSPACE}/${SCHEMA}"
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION_APPS}
+    conn ${CONNECTION} as SYSDBA
     select nvl(max(substr(version, 1, instr(version, ' '))
                    || case when availability_status like '%Available%' then 'AVAILABLE' else 'UNAVAILABLE' end),
                '0.0.0 NOT_INSTALLED'
@@ -264,6 +266,7 @@ function check_app {
       and  ALIAS           = upper('${APP_ALIAS}')
       and  OWNER           = upper('${SCHEMA}')
       and  APPLICATION_ID  = '${APP_ID}'
+    group by version, availability_status
     ;
 EOF
 )
@@ -281,22 +284,22 @@ EOF
     APP_OK=0
     echo2 "⚠️ found ${RETVAL} ...App Installation/Upgrade needed"
   fi
-
-  echo "${WORKSPACE}.${APP_ALIAS}: ${RETVAL}" > "${CATALINA_BASE}/webapps/ROOT/${APP_ALIAS}_version.txt"
 }
+
+
 
 
 ###############################################################################
 function install_app {
   #CONNECTION=$1
-  WORKSPACE=$1
-  SCHEMA=$2
-  APP_ID=$3
-  APP_ALIAS=$4
-  FILENAME=$5
-  APP_MIN_VERSION=$6
+  #WORKSPACE=$2
+  #SCHEMA=$3
+  #APP_ID=$4
+  #APP_ALIAS=$5
+  #FILENAME=$6
+  #APP_MIN_VERSION=$7
 
-  check_app $1 $2 $3 $4 $5 $6
+  check_app $1 $2 $3 $4 $5 $6 $7
 
   if [ ${APP_OK} -eq 0 ]; then
 
@@ -304,7 +307,7 @@ function install_app {
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF TAB OFF
-      conn ${CONNECTION_SYSDBA}
+      conn ${CONNECTION} as SYSDBA
       alter session set current_schema = ${SCHEMA};
       exec apex_util.set_workspace('${WORKSPACE}')
       exec apex_application_install.set_workspace_id( apex_util.find_security_group_id( p_workspace => '${WORKSPACE}'))
@@ -319,7 +322,7 @@ EOF
 
     echo2 "App #${APP_ID}: ${APP_ALIAS} installation completed"
 
-    check_app $1 $2 $3 $4 $5 $6
+    check_app $1 $2 $3 $4 $5 $6 $7
 
   fi
 
@@ -328,11 +331,11 @@ EOF
 
 
 function recompile {
-#  CONNECTION=$1
+  CONNECTION=$1
 
   RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
     SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-    conn ${CONNECTION_APPS}
+    conn ${CONNECTION} as SYSDBA
     alter session set current_schema = ${SCHEMA};
     select to_char(count(*)) from all_errors where owner = '${SCHEMA}'
     ;
@@ -348,7 +351,7 @@ EOF
 
     /u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF LINESIZE 1000
-      conn ${CONNECTION_APPS}
+      conn ${CONNECTION} as SYSDBA
       alter session set current_schema = ${SCHEMA};
       exec DBMS_UTILITY.compile_schema(SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA'))
       Select rpad(replace(UER.type,' ', '_')||' '||UER.name||' (' || (UER.line) || ')', 40)||UER.text as err
@@ -358,7 +361,7 @@ EOF
 
     RETVAL=$(/u01/sqlcl/bin/sql -S /NOLOG << EOF
       SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF ECHO OFF TAB OFF
-      conn ${CONNECTION_APPS}
+      conn ${CONNECTION} as SYSDBA
       select to_char(count(*)) from all_errors where owner = '${SCHEMA}'
       ;
 EOF
@@ -377,31 +380,19 @@ EOF
 # **************************************************************************************
 # main()
 
-CONNECTION_SYSDBA="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE} as sysdba"
-CONNECTION_APPS="${APP_SCHEMA}/${APP_SCHEMA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
-
-if [ "$SYSDBA_DEPLOYMODE" = "true" ] && [ -n "$SYSDBA_USER" ] && [ -n "$SYSDBA_PASSWORD" ]; then
-  echo2 "⚠️ Running in SYSDBA mode. APEX Setup and App Installation are enabled!"
-  CONNECTION="${CONNECTION_SYSDBA}"
-  SYSDBAMODE="true"
-else
-  echo2 "💡 Running in normal mode. APEX Setup and App Installation are disabled!"
-  CONNECTION="${CONNECTION_APPS}"
-  SYSDBAMODE="false"
-fi
-
+CONNECTION="${SYSDBA_USER}/${SYSDBA_PASSWORD}@//${DB_HOSTNAME}:${DB_PORT}/${DB_SERVICE}"
 
 echo2 "Initializing sqlcl..."
-first_sqlcl_call
+first_sqlcl_call ${CONNECTION}
 
 echo2 "Check DB is available..."
 
-check_db
+check_db ${CONNECTION}
 while [ ${DB_OK} -eq 0 ]
 do
   echo2 "🔴 DB not available yet. Waiting for 30 seconds."
   sleep 30
-  check_db
+  check_db ${CONNECTION}
 done
 
 
@@ -443,62 +434,54 @@ fi
 
 cd ${SQL_DIR}
 
-if [ "$SYSDBAMODE" == "true" ]; then
+install_dba_configure ${CONNECTION}
 
-  install_dba_configure
+dba_create_apex_tablespaces ${CONNECTION} ${APP_SCHEMA} ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES}
 
-  dba_create_apex_tablespaces ${APP_SCHEMA} ${APEX_TABLESPACE} ${APEX_TABLESPACE_FILES}
+if [ "${FIRST_RUN}" == "true" ]; then
 
-  if [ "${FIRST_RUN}" == "true" ]; then
+  check_apex ${CONNECTION}
 
-    check_apex
-
-    if [ ${APEX_OK} -eq 0 ]; then
-      install_apex
-    fi
+  if [ ${APEX_OK} -eq 0 ]; then
+    install_apex ${CONNECTION}
   fi
-fi
 
-echo2 "******************************************************************************"
-echo2 "Configuring ORDS..."
-cd ${ORDS_HOME}
+  echo2 "******************************************************************************"
+  echo2 "Configuring ORDS..."
+  cd ${ORDS_HOME}
 
-export ORDS_CONFIG=${ORDS_CONF}
+  export ORDS_CONFIG=${ORDS_CONF}
 
-${ORDS_HOME}/bin/ords --config ${ORDS_CONF} install \
-     --log-folder ${ORDS_CONF}/logs \
-     --admin-user "${SYSDBA_USER} as SYSDBA" \
-     --db-hostname ${DB_HOSTNAME} \
-     --db-port ${DB_PORT} \
-     --db-servicename ${DB_SERVICE} \
-     --feature-db-api true \
-     --feature-rest-enabled-sql true \
-     --feature-sdw true \
-     --gateway-mode proxied \
-     --gateway-user APEX_PUBLIC_USER \
-     --proxy-user \
-     --password-stdin <<EOF
+  ${ORDS_HOME}/bin/ords --config ${ORDS_CONF} install \
+       --log-folder ${ORDS_CONF}/logs \
+       --admin-user "${SYSDBA_USER} as SYSDBA" \
+       --db-hostname ${DB_HOSTNAME} \
+       --db-port ${DB_PORT} \
+       --db-servicename ${DB_SERVICE} \
+       --feature-db-api true \
+       --feature-rest-enabled-sql true \
+       --feature-sdw true \
+       --gateway-mode proxied \
+       --gateway-user APEX_PUBLIC_USER \
+       --proxy-user \
+       --password-stdin <<EOF
 ${SYSDBA_PASSWORD}
 ${APEX_LISTENER_PASSWORD}
 EOF
 
-cp ords.war ${CATALINA_BASE}/webapps/${CONTEXT_ROOT}.war
+  cp ords.war ${CATALINA_BASE}/webapps/${CONTEXT_ROOT}.war
+
+fi
 
 cd ${SQL_DIR}
 
+dba_configure ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_PORT} ${ORDS_PATH}
 
-if [ "$SYSDBAMODE" == "true" ]; then
-  dba_configure ${APP_WORKSPACE} ${APP_SCHEMA} ${DB_ROOTPATH} ${SMTP_HOST} ${SMTP_PORT} ${ORDS_PATH}
+install_app ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${APP1_ID} ${APP1_ALIAS} ${APP1_FILENAME} ${APP1_VERSION}
+install_app ${CONNECTION} ${APP_WORKSPACE} ${APP_SCHEMA} ${APP2_ID} ${APP2_ALIAS} ${APP2_FILENAME} ${APP2_VERSION}
 
-  install_app ${APP_WORKSPACE} ${APP_SCHEMA} ${APP1_ID} ${APP1_ALIAS} ${APP1_FILENAME} ${APP1_VERSION}
-  install_app ${APP_WORKSPACE} ${APP_SCHEMA} ${APP2_ID} ${APP2_ALIAS} ${APP2_FILENAME} ${APP2_VERSION}
+recompile   ${CONNECTION}
 
-else
-  check_app ${APP_WORKSPACE} ${APP_SCHEMA} ${APP1_ID} ${APP1_ALIAS} ${APP1_FILENAME} ${APP1_VERSION}
-  check_app ${APP_WORKSPACE} ${APP_SCHEMA} ${APP2_ID} ${APP2_ALIAS} ${APP2_FILENAME} ${APP2_VERSION}
-fi
-
-recompile
 
 if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
   echo2 "******************************************************************************"
@@ -518,13 +501,6 @@ if [ ! -f ${KEYSTORE_DIR}/keystore.jks ]; then
   cp ${SCRIPTS_DIR}/web.xml ${CATALINA_BASE}/conf
 fi;
 
-# configure extended Access Log
-valve_element='<Valve className="org.apache.catalina.valves.ExtendedAccessLogValve" directory="logs" fileDateFormat="" pattern="date time time-taken x-H(contentLength) x-H(protocol) sc-status cs-method cs-uri c-dns x-H(characterEncoding) bytes x-H(authType) x-H(secure) x-H(remoteUser) S x-H(requestedSessionId) x-H(SOAPAction)" prefix="extended_access" resolveHosts="true" suffix=".log"/>'
-
-# add Valve-element into server.xml
-sed -i "/<\/Host>/i \ \ $valve_element" "${CATALINA_BASE}/conf/server.xml"
-touch "${CATALINA_BASE}/logs/extended_access.log"
-
 echo2 "******************************************************************************"
 echo2 "🟢 Starting Tomcat..."
 ${CATALINA_HOME}/bin/startup.sh
@@ -532,6 +508,5 @@ ${CATALINA_HOME}/bin/startup.sh
 echo2 "******************************************************************************"
 echo2 "Tail the catalina.out file as a background process and wait on the process so script never ends..."
 tail -f ${CATALINA_BASE}/logs/catalina.out &
-tail -f ${CATALINA_BASE}/logs/extended_access.log &
 bgPID=$!
 wait $bgPID
