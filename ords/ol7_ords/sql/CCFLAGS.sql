@@ -20,15 +20,18 @@ create or replace PACKAGE "CCFLAGS" as
   ORDFEATURES                 constant boolean := true;   -- Oracle Multimedia Integration
 
   LVSPWD                      constant boolean := false;  -- Password is stored as "LVS-Encrypted"
+  GLOB                        constant boolean := true;  -- Enable "GLOB" Package integration
 
   TRC_WARN                    constant boolean := true;   -- trace warnings, errors and success messages
   TRC_INFO                    constant boolean := true;   -- trace more messages
   TRC_DEBUG                   constant boolean := true;   -- trace all
 
-  ENABLE_UTL_FILE             constant boolean := true;   -- Disable when EXECUTE on UTL_FILE wasn't grated
+  ENABLE_UTL_FILE             constant boolean := false;  -- Disable when EXECUTE on UTL_FILE wasn't grated
+  ENABLE_UTL_TCP              constant boolean := true;   -- Disable when EXECUTE on UTL_TCP wasn't grated
   ENABLE_UTL_HTTP             constant boolean := true;   -- Disable when EXECUTE on UTL_HTTP wasn't grated
   ENABLE_DBMS_ALERT           constant boolean := true;   -- Disable when EXECUTE on DBMS_ALERT wasn't grated
   ENABLE_DBMS_LOCK            constant boolean := true;   -- Disable when EXECUTE on DBMS_LOCK wasn't grated
+  ENABLE_DBMS_AQ              constant boolean := true;   -- Disable when EXECUTE on DBMS_AQ wasn't grated
 
 End CCFLAGS;
 /
